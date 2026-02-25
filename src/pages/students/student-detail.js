@@ -25,6 +25,12 @@ import {
   updateNote,
   softDeleteNote,
 } from '../../services/notes.js';
+import {
+  getSongs,
+  createSong,
+  updateSong,
+  deleteSong,
+} from '../../services/songs.js';
 
 // ── Module state ──────────────────────────────────────────────────────────────
 
@@ -1021,6 +1027,322 @@ async function reloadNotes(canDelete) {
   renderNotes(notes, canDelete);
 }
 
+// ── Songs tab ───────────────────────────────────────────────────────────────────
+
+const STATUS_META = {
+  planned:   { label: 'Planned',   cls: 'secondary' },
+  started:   { label: 'In Progress', cls: 'primary'   },
+  completed: { label: 'Completed', cls: 'success'    },
+};
+
+function renderSongs(songs, canDelete) {
+  const statusOptions = Object.entries(STATUS_META)
+    .map(([val, m]) => `<option value="${val}">${m.label}</option>`)
+    .join('');
+
+  const addBtn = `
+    <button class="btn btn-sm btn-outline-primary" id="btn-toggle-add-song"
+      data-bs-toggle="collapse" data-bs-target="#add-song-collapse" aria-expanded="false">
+      <i class="bi bi-plus-lg me-1"></i>Add Song
+    </button>`;
+
+  const inlineAddForm = `
+    <div class="collapse mb-4" id="add-song-collapse">
+      <div class="card border-0 shadow-sm" style="background:#f8f9fa">
+        <div class="card-body">
+          <h6 class="fw-semibold mb-3">New Song</h6>
+          <form id="add-song-form" novalidate>
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label fw-semibold" style="font-size:.8rem">Song Name <span class="text-danger">*</span></label>
+                <input type="text" name="song_name" class="form-control form-control-sm"
+                  placeholder="e.g. APT — Bruno Mars" required />
+                <div class="invalid-feedback">Song name is required.</div>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label fw-semibold" style="font-size:.8rem">Song URL</label>
+                <input type="url" name="song_url" class="form-control form-control-sm"
+                  placeholder="https://…" />
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label fw-semibold" style="font-size:.8rem">Lyrics URL</label>
+                <input type="url" name="lyrics_url" class="form-control form-control-sm"
+                  placeholder="https://…" />
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label fw-semibold" style="font-size:.8rem">Status</label>
+                <select name="status" class="form-select form-select-sm">${statusOptions}</select>
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-semibold" style="font-size:.8rem">Notes</label>
+                <textarea name="notes" class="form-control form-control-sm" rows="2"
+                  placeholder="Additional notes…"></textarea>
+              </div>
+            </div>
+            <div id="add-song-form-error" class="alert alert-danger mt-3 d-none"></div>
+            <div class="d-flex gap-2 mt-3">
+              <button type="submit" id="btn-save-song" class="btn btn-primary btn-sm">
+                <span id="btn-save-song-spinner" class="spinner-border spinner-border-sm me-1 d-none" role="status"></span>
+                Save Song
+              </button>
+              <button type="button" id="btn-cancel-add-song" class="btn btn-light btn-sm">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>`;
+
+  const cards = songs.length
+    ? songs.map(s => {
+        const meta       = STATUS_META[s.status] ?? STATUS_META.planned;
+        const songLink   = s.song_url
+          ? `<a href="${escHtml(s.song_url)}" target="_blank" rel="noopener" class="text-decoration-none small">
+               <i class="bi bi-music-note me-1"></i>Listen
+             </a>` : '';
+        const lyricsLink = s.lyrics_url
+          ? `<a href="${escHtml(s.lyrics_url)}" target="_blank" rel="noopener" class="text-decoration-none small ms-3">
+               <i class="bi bi-file-text me-1"></i>Lyrics
+             </a>` : '';
+
+        const deleteBtn = canDelete
+          ? `<button class="btn btn-sm btn-outline-danger btn-delete-song" data-id="${s.id}" data-name="${escHtml(s.song_name)}">
+               <i class="bi bi-trash"></i>
+             </button>` : '';
+
+        // Status options pre-selecting current status
+        const statusOpts = Object.entries(STATUS_META)
+          .map(([val, m]) => `<option value="${val}"${val === s.status ? ' selected' : ''}>${m.label}</option>`)
+          .join('');
+
+        const inlineEditForm = `
+          <div id="song-edit-${s.id}" class="d-none" style="background:#f8f9fa;border-top:1px solid #e9ecef">
+            <div class="px-4 py-3">
+              <form class="inline-edit-song-form" data-song-id="${s.id}" novalidate>
+                <div class="row g-3">
+                  <div class="col-12">
+                    <label class="form-label fw-semibold" style="font-size:.8rem">Song Name <span class="text-danger">*</span></label>
+                    <input type="text" name="song_name" class="form-control form-control-sm"
+                      value="${escHtml(s.song_name)}" required />
+                    <div class="invalid-feedback">Song name is required.</div>
+                  </div>
+                  <div class="col-sm-6">
+                    <label class="form-label fw-semibold" style="font-size:.8rem">Song URL</label>
+                    <input type="url" name="song_url" class="form-control form-control-sm"
+                      value="${escHtml(s.song_url ?? '')}" />
+                  </div>
+                  <div class="col-sm-6">
+                    <label class="form-label fw-semibold" style="font-size:.8rem">Lyrics URL</label>
+                    <input type="url" name="lyrics_url" class="form-control form-control-sm"
+                      value="${escHtml(s.lyrics_url ?? '')}" />
+                  </div>
+                  <div class="col-sm-6">
+                    <label class="form-label fw-semibold" style="font-size:.8rem">Status</label>
+                    <select name="status" class="form-select form-select-sm">${statusOpts}</select>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label fw-semibold" style="font-size:.8rem">Notes</label>
+                    <textarea name="notes" class="form-control form-control-sm" rows="2">${escHtml(s.notes ?? '')}</textarea>
+                  </div>
+                </div>
+                <div class="inline-song-error alert alert-danger mt-2 d-none"></div>
+                <div class="d-flex gap-2 mt-3">
+                  <button type="submit" class="btn btn-primary btn-sm btn-save-inline-song">
+                    <span class="edit-song-spinner spinner-border spinner-border-sm me-1 d-none" role="status"></span>
+                    Save Changes
+                  </button>
+                  <button type="button" class="btn btn-light btn-sm btn-cancel-edit-song">Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>`;
+
+        return `
+          <div class="card mb-3 border-0 shadow-sm overflow-hidden">
+            <div class="d-flex align-items-center justify-content-between gap-2 px-4 py-2"
+                 style="background:#f1f3f5;border-bottom:1px solid #e9ecef">
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                <i class="bi bi-music-note-beamed text-muted" style="font-size:.85rem"></i>
+                <span class="fw-semibold" style="font-size:.9rem">${escHtml(s.song_name)}</span>
+                <span class="badge text-bg-${meta.cls} rounded-pill" style="font-size:.72rem">${meta.label}</span>
+              </div>
+              <div class="d-flex gap-1 flex-shrink-0">
+                <button class="btn btn-sm btn-outline-secondary btn-edit-song" data-id="${s.id}">
+                  <i class="bi bi-pencil"></i>
+                </button>
+                ${deleteBtn}
+              </div>
+            </div>
+            <div id="song-view-${s.id}" class="card-body py-3">
+              ${s.notes ? `<p class="small mb-2" style="white-space:pre-wrap;line-height:1.6">${escHtml(s.notes)}</p>` : ''}
+              <div class="d-flex gap-3">${songLink}${lyricsLink}</div>
+            </div>
+            ${inlineEditForm}
+          </div>`;
+      }).join('')
+    : `<div class="text-center py-5 text-muted">
+         <i class="bi bi-music-note-list fs-1 opacity-50"></i>
+         <p class="mt-3 mb-0">No songs in the repertoire yet.</p>
+       </div>`;
+
+  document.getElementById('panel-songs').innerHTML = `
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h5 class="fw-semibold mb-0">Songs</h5>
+      ${addBtn}
+    </div>
+    ${inlineAddForm}
+    ${cards}`;
+
+  wireSongButtons(canDelete);
+}
+
+function wireSongButtons(canDelete) {
+  // ── Add form ──
+  const collapseEl = document.getElementById('add-song-collapse');
+  const addForm    = document.getElementById('add-song-form');
+  const addErr     = document.getElementById('add-song-form-error');
+  const addSpinner = document.getElementById('btn-save-song-spinner');
+  const addSaveBtn = document.getElementById('btn-save-song');
+
+  document.getElementById('btn-cancel-add-song')?.addEventListener('click', () => {
+    bootstrap.Collapse.getInstance(collapseEl)?.hide();
+    addForm.reset();
+    addForm.classList.remove('was-validated');
+    addErr.classList.add('d-none');
+  });
+
+  addForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!addForm.checkValidity()) { addForm.classList.add('was-validated'); return; }
+
+    addSpinner.classList.remove('d-none');
+    addSaveBtn.disabled = true;
+    addErr.classList.add('d-none');
+
+    try {
+      const f = addForm.elements;
+      await createSong(currentStudentId, currentTeacherId, {
+        song_name:  f['song_name'].value,
+        song_url:   f['song_url'].value,
+        lyrics_url: f['lyrics_url'].value,
+        notes:      f['notes'].value,
+        status:     f['status'].value,
+      });
+      showToast('Song added.', 'success');
+      await reloadSongs(canDelete);
+    } catch (err) {
+      addErr.textContent = err.message;
+      addErr.classList.remove('d-none');
+      addSpinner.classList.add('d-none');
+      addSaveBtn.disabled = false;
+    }
+  });
+
+  // ── Edit toggle ──
+  document.querySelectorAll('.btn-edit-song').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id     = btn.dataset.id;
+      const viewEl = document.getElementById(`song-view-${id}`);
+      const editEl = document.getElementById(`song-edit-${id}`);
+      const isOpen = !editEl.classList.contains('d-none');
+
+      // Close any other open edit forms
+      document.querySelectorAll('[id^="song-edit-"]').forEach(el => {
+        if (el.id !== `song-edit-${id}` && !el.classList.contains('d-none')) {
+          el.classList.add('d-none');
+          document.getElementById(el.id.replace('song-edit-', 'song-view-'))?.classList.remove('d-none');
+        }
+      });
+
+      if (isOpen) {
+        editEl.classList.add('d-none');
+        viewEl.classList.remove('d-none');
+      } else {
+        viewEl.classList.add('d-none');
+        editEl.classList.remove('d-none');
+      }
+    });
+  });
+
+  // ── Cancel inline edit ──
+  document.querySelectorAll('.btn-cancel-edit-song').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const editEl = btn.closest('[id^="song-edit-"]');
+      const id     = editEl.id.replace('song-edit-', '');
+      editEl.classList.add('d-none');
+      document.getElementById(`song-view-${id}`)?.classList.remove('d-none');
+      btn.closest('form').classList.remove('was-validated');
+      btn.closest('form').querySelector('.inline-song-error')?.classList.add('d-none');
+    });
+  });
+
+  // ── Inline edit submit ──
+  document.querySelectorAll('.inline-edit-song-form').forEach(form => {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!form.checkValidity()) { form.classList.add('was-validated'); return; }
+
+      const spinner = form.querySelector('.edit-song-spinner');
+      const saveBtn = form.querySelector('.btn-save-inline-song');
+      const errEl   = form.querySelector('.inline-song-error');
+
+      spinner.classList.remove('d-none');
+      saveBtn.disabled = true;
+      errEl.classList.add('d-none');
+
+      try {
+        const f = form.elements;
+        await updateSong(form.dataset.songId, {
+          song_name:  f['song_name'].value,
+          song_url:   f['song_url'].value,
+          lyrics_url: f['lyrics_url'].value,
+          notes:      f['notes'].value,
+          status:     f['status'].value,
+        });
+        showToast('Song updated.', 'success');
+        await reloadSongs(canDelete);
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.classList.remove('d-none');
+        spinner.classList.add('d-none');
+        saveBtn.disabled = false;
+      }
+    });
+  });
+
+  // ── Delete (Primary teacher + Admin only) ──
+  if (canDelete) {
+    document.querySelectorAll('.btn-delete-song').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const { id, name } = btn.dataset;
+        document.getElementById('delete-song-name').textContent = name;
+
+        const confirmBtn = document.getElementById('btn-confirm-delete-song');
+        const fresh = confirmBtn.cloneNode(true);
+        confirmBtn.replaceWith(fresh);
+        fresh.addEventListener('click', async () => {
+          try {
+            await deleteSong(id);
+            bootstrap.Modal.getInstance(
+              document.getElementById('deleteSongModal')
+            )?.hide();
+            showToast('Song deleted.', 'warning');
+            await reloadSongs(canDelete);
+          } catch (err) {
+            showToast('Failed to delete: ' + err.message, 'danger');
+          }
+        });
+
+        new bootstrap.Modal(document.getElementById('deleteSongModal')).show();
+      });
+    });
+  }
+}
+
+async function reloadSongs(canDelete) {
+  const songs = await getSongs(currentStudentId);
+  renderSongs(songs, canDelete);
+}
+
 // ── Placeholder tabs ──────────────────────────────────────────────────────────
 
 function renderPlaceholder(panelId, icon, label) {
@@ -1076,8 +1398,12 @@ async function init() {
     const notes = await getNotes(studentId);
     renderNotes(notes, canDeleteNotes);
 
-    renderPlaceholder('panel-songs',      'bi-music-note-list', 'Songs');
-    renderPlaceholder('panel-recordings', 'bi-mic',             'Recordings');
+    // Songs — delete allowed for admin or primary teacher
+    const canDeleteSongs = isAdmin || isPrimary;
+    const songs = await getSongs(studentId);
+    renderSongs(songs, canDeleteSongs);
+
+    renderPlaceholder('panel-recordings', 'bi-mic', 'Recordings');
 
   } catch (err) {
     document.getElementById('page-loading').classList.add('d-none');
