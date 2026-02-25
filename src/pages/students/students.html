@@ -28,14 +28,24 @@
             </button>
           </div>
 
-          <!-- Search -->
-          <div class="mb-3" style="max-width:340px">
-            <div class="input-group">
-              <span class="input-group-text bg-white border-end-0">
-                <i class="bi bi-search text-secondary"></i>
-              </span>
-              <input type="text" id="search-input" class="form-control border-start-0 ps-0"
-                placeholder="Search by name…" />
+          <!-- Search + Sort -->
+          <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+            <div style="max-width:300px;min-width:200px;flex:1">
+              <div class="input-group">
+                <span class="input-group-text bg-white border-end-0">
+                  <i class="bi bi-search text-secondary"></i>
+                </span>
+                <input type="text" id="search-input" class="form-control border-start-0 ps-0"
+                  placeholder="Search by name…" />
+              </div>
+            </div>
+            <!-- Sort dropdown — shown for Admin only via JS -->
+            <div id="sort-wrapper" class="d-none">
+              <select id="sort-select" class="form-select" style="min-width:160px">
+                <option value="az">A → Z</option>
+                <option value="za">Z → A</option>
+                <option value="newest">Latest Added</option>
+              </select>
             </div>
           </div>
 
@@ -127,6 +137,87 @@
               </button>
             </div>
           </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Student Modal (Admin only) -->
+    <div class="modal fade" id="editStudentModal" tabindex="-1"
+      aria-labelledby="editStudentModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header border-0 pb-0">
+            <h5 class="modal-title fw-bold" id="editStudentModalLabel">Edit Student</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <form id="edit-student-form" novalidate>
+            <input type="hidden" name="student_id" id="edit-student-id" />
+            <div class="modal-body">
+              <div class="row g-3">
+                <div class="col-6">
+                  <label class="form-label fw-semibold">First Name <span class="text-danger">*</span></label>
+                  <input type="text" name="first_name" id="edit-first-name" class="form-control" required />
+                  <div class="invalid-feedback">Required.</div>
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold">Last Name <span class="text-danger">*</span></label>
+                  <input type="text" name="last_name" id="edit-last-name" class="form-control" required />
+                  <div class="invalid-feedback">Required.</div>
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold">Phone</label>
+                  <input type="tel" name="phone" id="edit-phone" class="form-control" />
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold">Email</label>
+                  <input type="email" name="email" id="edit-email" class="form-control" />
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold">Date of Birth</label>
+                  <input type="date" name="birth_date" id="edit-birth-date" class="form-control" />
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold">Status</label>
+                  <select name="is_active" id="edit-is-active" class="form-select">
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
+                  </select>
+                </div>
+                <div class="col-12">
+                  <label class="form-label fw-semibold">Primary Teacher</label>
+                  <select name="primary_teacher_id" id="edit-teacher-select" class="form-select">
+                    <option value="">— None —</option>
+                  </select>
+                </div>
+              </div>
+              <input type="hidden" id="edit-original-teacher" name="original_teacher_id" />
+              <div id="edit-form-error" class="alert alert-danger mt-3 d-none"></div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+              <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" id="btn-update-student" class="btn btn-primary">
+                <span id="btn-update-spinner" class="spinner-border spinner-border-sm me-1 d-none" role="status"></span>
+                Save Changes
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Deactivate / Reactivate Confirmation Modal (Admin only) -->
+    <div class="modal fade" id="confirmStatusModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+          <div class="modal-body pt-4 pb-2 text-center">
+            <div id="confirm-status-icon" class="fs-1 mb-2"></div>
+            <p id="confirm-status-msg" class="fw-semibold mb-0"></p>
+            <p class="text-muted small" id="confirm-status-sub"></p>
+          </div>
+          <div class="modal-footer border-0 pt-0 justify-content-center gap-2">
+            <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" id="btn-confirm-status" class="btn px-4">Confirm</button>
+          </div>
         </div>
       </div>
     </div>

@@ -14,9 +14,9 @@ export async function getStudents() {
   const { data, error } = await supabase
     .from('students')
     .select(`
-      id, first_name, last_name, is_active, created_at,
+      id, first_name, last_name, phone, email, birth_date, is_active, created_at,
       student_teacher_assignments(
-        role, active_to,
+        teacher_id, role, active_to,
         teacher:profiles!teacher_id(first_name, last_name)
       )
     `)
@@ -63,7 +63,7 @@ export async function getStudentById(id) {
       *,
       student_parents(*),
       student_teacher_assignments(
-        id, role, active_from, active_to,
+        id, teacher_id, role, active_from, active_to,
         teacher:profiles!teacher_id(id, first_name, last_name, phone, email, photo_url)
       )
     `)
@@ -111,6 +111,64 @@ export async function createStudent({ first_name, last_name, phone, email, birth
 }
 
 /**
+ * Add a new assignment (primary or assistant). Admin only.
+ * For primary: DB partial unique index enforces one active primary per student.
+ * For assistant: active_from and active_to are optional.
+ */
+export async function addAssignment(studentId, teacherId, role, activeFrom, activeTo) {
+  const { error } = await supabase
+    .from('student_teacher_assignments')
+    .insert({
+      student_id:  studentId,
+      teacher_id:  teacherId,
+      role,
+      active_from: activeFrom || new Date().toISOString(),
+      active_to:   activeTo   || null,
+    });
+  if (error) throw error;
+}
+
+/**
+ * End an assignment by setting active_to = now(). Admin only.
+ */
+export async function endAssignment(assignmentId) {
+  const { error } = await supabase
+    .from('student_teacher_assignments')
+    .update({ active_to: new Date().toISOString() })
+    .eq('id', assignmentId);
+  if (error) throw error;
+}
+
+/**
+ * Reassign the primary teacher for a student. Admin only.
+ * Closes the current open primary assignment (sets active_to = now)
+ * then inserts a new one. Pass null to clear without reassigning.
+ */
+export async function reassignPrimaryTeacher(studentId, newTeacherId) {
+  // Close any currently open primary assignment
+  const { error: closeError } = await supabase
+    .from('student_teacher_assignments')
+    .update({ active_to: new Date().toISOString() })
+    .eq('student_id', studentId)
+    .eq('role', 'primary')
+    .is('active_to', null);
+
+  if (closeError) throw closeError;
+
+  if (newTeacherId) {
+    const { error: insertError } = await supabase
+      .from('student_teacher_assignments')
+      .insert({
+        student_id: studentId,
+        teacher_id: newTeacherId,
+        role:       'primary',
+        active_to:  null,
+      });
+    if (insertError) throw insertError;
+  }
+}
+
+/**
  * Update a student's profile. Admin only (enforced by RLS).
  */
 export async function updateStudent(id, updates) {
@@ -154,4 +212,53 @@ export async function getTeacherProfiles() {
 
   if (error) throw error;
   return data ?? [];
+}
+
+// ── Parents ───────────────────────────────────────────────────────────────────
+
+/**
+ * Add a parent / guardian record for a student. Admin only (enforced by RLS).
+ */
+export async function createParent(studentId, { full_name, relation, phone, email, occupation, notes }) {
+  const { error } = await supabase
+    .from('student_parents')
+    .insert({
+      student_id:  studentId,
+      full_name,
+      relation,
+      phone:       phone      || null,
+      email:       email      || null,
+      occupation:  occupation || null,
+      notes:       notes      || null,
+    });
+  if (error) throw error;
+}
+
+/**
+ * Update an existing parent / guardian record. Admin only (enforced by RLS).
+ */
+export async function updateParent(id, { full_name, relation, phone, email, occupation, notes }) {
+  const { error } = await supabase
+    .from('student_parents')
+    .update({
+      full_name,
+      relation,
+      phone:      phone      || null,
+      email:      email      || null,
+      occupation: occupation || null,
+      notes:      notes      || null,
+    })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+/**
+ * Hard-delete a parent / guardian record. Admin only (enforced by RLS).
+ */
+export async function deleteParent(id) {
+  const { error } = await supabase
+    .from('student_parents')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
 }

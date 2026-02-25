@@ -41,10 +41,6 @@
             <ul class="nav nav-tabs mb-0" role="tablist">
               <li class="nav-item" role="presentation">
                 <button class="nav-link active" data-bs-toggle="tab"
-                  data-bs-target="#panel-overview" type="button" role="tab">Overview</button>
-              </li>
-              <li class="nav-item" role="presentation">
-                <button class="nav-link" data-bs-toggle="tab"
                   data-bs-target="#panel-lessons" type="button" role="tab">Lessons</button>
               </li>
               <li class="nav-item" role="presentation">
@@ -59,14 +55,18 @@
                 <button class="nav-link" data-bs-toggle="tab"
                   data-bs-target="#panel-notes" type="button" role="tab">Notes</button>
               </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab"
+                  data-bs-target="#panel-overview" type="button" role="tab">Info</button>
+              </li>
             </ul>
 
             <div class="tab-content border border-top-0 rounded-bottom p-4 bg-white">
-              <div class="tab-pane fade show active" id="panel-overview"   role="tabpanel"></div>
-              <div class="tab-pane fade"             id="panel-lessons"    role="tabpanel"></div>
+              <div class="tab-pane fade show active" id="panel-lessons"    role="tabpanel"></div>
               <div class="tab-pane fade"             id="panel-songs"      role="tabpanel"></div>
               <div class="tab-pane fade"             id="panel-recordings" role="tabpanel"></div>
               <div class="tab-pane fade"             id="panel-notes"      role="tabpanel"></div>
+              <div class="tab-pane fade"             id="panel-overview"   role="tabpanel"></div>
             </div>
 
           </div>
@@ -79,6 +79,201 @@
               class="btn btn-outline-secondary btn-sm">Back to Students</a>
           </div>
 
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Parent Modal (Admin only) -->
+    <div class="modal fade" id="editParentModal" tabindex="-1" aria-labelledby="editParentModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header border-0 pb-0">
+            <h5 class="modal-title fw-bold" id="editParentModalLabel">Edit Parent / Guardian</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <form id="edit-parent-form" novalidate>
+            <div class="modal-body">
+              <div class="row g-3">
+                <div class="col-12">
+                  <label class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label>
+                  <input type="text" name="full_name" class="form-control" required />
+                  <div class="invalid-feedback">Required.</div>
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold">Relation <span class="text-danger">*</span></label>
+                  <select name="relation" class="form-select" required>
+                    <option value="">Choose…</option>
+                    <option value="mother">Mother</option>
+                    <option value="father">Father</option>
+                    <option value="guardian">Guardian</option>
+                  </select>
+                  <div class="invalid-feedback">Required.</div>
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold">Phone</label>
+                  <input type="tel" name="phone" class="form-control" />
+                </div>
+                <div class="col-12">
+                  <label class="form-label fw-semibold">Email</label>
+                  <input type="email" name="email" class="form-control" />
+                </div>
+                <div class="col-12">
+                  <label class="form-label fw-semibold">Occupation</label>
+                  <input type="text" name="occupation" class="form-control" />
+                </div>
+                <div class="col-12">
+                  <label class="form-label fw-semibold">Notes</label>
+                  <textarea name="notes" class="form-control" rows="2"></textarea>
+                </div>
+              </div>
+              <div id="edit-parent-form-error" class="alert alert-danger mt-3 d-none"></div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+              <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" id="btn-save-edit-parent" class="btn btn-primary">
+                <span id="btn-save-edit-parent-spinner" class="spinner-border spinner-border-sm me-1 d-none" role="status"></span>
+                Save Changes
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Parent Confirmation Modal (Admin only) -->
+    <div class="modal fade" id="deleteParentModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+          <div class="modal-body pt-4 pb-2 text-center">
+            <div class="fs-1 mb-2">⚠️</div>
+            <p class="fw-semibold mb-1">Remove parent contact?</p>
+            <p class="text-muted small mb-0"><span id="delete-parent-name" class="fw-semibold"></span> will be permanently deleted.</p>
+          </div>
+          <div class="modal-footer border-0 pt-0 justify-content-center gap-2">
+            <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" id="btn-confirm-delete-parent" class="btn btn-danger px-4">Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Parent Modal (Admin only) -->
+    <div class="modal fade" id="addParentModal" tabindex="-1" aria-labelledby="addParentModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header border-0 pb-0">
+            <h5 class="modal-title fw-bold" id="addParentModalLabel">Add Parent / Guardian</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <form id="add-parent-form" novalidate>
+            <div class="modal-body">
+              <div class="row g-3">
+                <div class="col-12">
+                  <label class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label>
+                  <input type="text" name="full_name" class="form-control" required />
+                  <div class="invalid-feedback">Required.</div>
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold">Relation <span class="text-danger">*</span></label>
+                  <select name="relation" class="form-select" required>
+                    <option value="">Choose…</option>
+                    <option value="mother">Mother</option>
+                    <option value="father">Father</option>
+                    <option value="guardian">Guardian</option>
+                  </select>
+                  <div class="invalid-feedback">Required.</div>
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold">Phone</label>
+                  <input type="tel" name="phone" class="form-control" />
+                </div>
+                <div class="col-12">
+                  <label class="form-label fw-semibold">Email</label>
+                  <input type="email" name="email" class="form-control" />
+                </div>
+                <div class="col-12">
+                  <label class="form-label fw-semibold">Occupation</label>
+                  <input type="text" name="occupation" class="form-control" />
+                </div>
+                <div class="col-12">
+                  <label class="form-label fw-semibold">Notes</label>
+                  <textarea name="notes" class="form-control" rows="2"></textarea>
+                </div>
+              </div>
+              <div id="parent-form-error" class="alert alert-danger mt-3 d-none"></div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+              <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" id="btn-save-parent" class="btn btn-primary">
+                <span id="btn-save-parent-spinner" class="spinner-border spinner-border-sm me-1 d-none" role="status"></span>
+                Save
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Assistant Modal (Admin only) -->
+    <div class="modal fade" id="addAssignmentModal" tabindex="-1" aria-labelledby="addAssignmentModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header border-0 pb-0">
+            <h5 class="modal-title fw-bold" id="addAssignmentModalLabel">Add Assistant</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <form id="add-assignment-form" novalidate>
+            <div class="modal-body">
+              <div class="row g-3">
+                <div class="col-12">
+                  <label class="form-label fw-semibold">Teacher <span class="text-danger">*</span></label>
+                  <select id="assign-teacher-select" name="teacher_id" class="form-select" required>
+                    <option value="">Select a teacher…</option>
+                  </select>
+                  <div class="invalid-feedback">Please select a teacher.</div>
+                </div>
+                <div id="assign-dates-wrapper" class="col-12">
+                  <div class="row g-3">
+                    <div class="col-6">
+                      <label class="form-label fw-semibold">Active From</label>
+                      <input type="date" name="active_from" id="assign-active-from" class="form-control" />
+                      <div class="form-text">Leave blank to start immediately.</div>
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label fw-semibold">Active To</label>
+                      <input type="date" name="active_to" id="assign-active-to" class="form-control" />
+                      <div class="form-text">Leave blank for open-ended.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div id="assign-form-error" class="alert alert-danger mt-3 d-none"></div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+              <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" id="btn-save-assignment" class="btn btn-primary">
+                <span id="btn-save-assignment-spinner" class="spinner-border spinner-border-sm me-1 d-none" role="status"></span>
+                Add Assistant
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- End Assignment Confirmation Modal (Admin only) -->
+    <div class="modal fade" id="endAssignmentModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+          <div class="modal-body pt-4 pb-2 text-center">
+            <div class="fs-1 mb-2">⚠️</div>
+            <p id="end-assignment-msg" class="fw-semibold mb-0"></p>
+            <p class="text-muted small">This will set the assignment end date to today. The action can be undone by adding a new assignment.</p>
+          </div>
+          <div class="modal-footer border-0 pt-0 justify-content-center gap-2">
+            <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" id="btn-confirm-end" class="btn btn-danger px-4">End Assignment</button>
+          </div>
         </div>
       </div>
     </div>
