@@ -1,24 +1,53 @@
 // utils/guards.js
-// Page guard: redirect unauthenticated / unauthorised users.
-import { getSession, getProfile } from '../services/auth.js';
+// Page auth guards for the MPA. Call at the top of every protected page script.
+import { getCurrentUser } from '../services/auth.js';
+
+const LOGIN_URL     = '/src/pages/login/login.html';
+const DASHBOARD_URL = '/src/pages/dashboard/dashboard.html';
 
 /**
- * Redirect to login if no active session.
- * Optionally restrict to a specific role.
- * @param {'admin'|'teacher'|null} requiredRole
+ * Ensure the current visitor has an active session.
+ * If not → redirect to login immediately (returns null and execution stops).
+ * If yes → return { session, profile } so the page can use role / name.
+ *
+ * Usage (top of every protected page JS):
+ *   const { profile } = await authGuard();
+ *
+ * @returns {Promise<{session: object, profile: object}|null>}
  */
-export async function requireAuth(requiredRole = null) {
-  const session = await getSession();
-  if (!session) {
-    window.location.href = '/src/pages/login/login.html';
+export async function authGuard() {
+  const user = await getCurrentUser();
+  if (!user) {
+    window.location.replace(LOGIN_URL);
     return null;
   }
-  if (requiredRole) {
-    const profile = await getProfile(session.user.id);
-    if (profile.role !== requiredRole) {
-      window.location.href = '/src/pages/dashboard/dashboard.html';
-      return null;
-    }
+  return user; // { session, profile }
+}
+
+/**
+ * Ensure the current visitor has a specific role.
+ * If wrong role → redirect to dashboard (they are logged in but not authorised).
+ *
+ * @param {'admin'|'teacher'} requiredRole
+ * @returns {Promise<{session: object, profile: object}|null>}
+ */
+export async function requireRole(requiredRole) {
+  const user = await authGuard();
+  if (!user) return null; // already redirected
+  if (user.profile.role !== requiredRole) {
+    window.location.replace(DASHBOARD_URL);
+    return null;
   }
-  return session;
+  return user;
+}
+
+/**
+ * Redirect an already-authenticated user away from the login page.
+ * Call at the top of login.js.
+ */
+export async function redirectIfAuthenticated() {
+  const user = await getCurrentUser();
+  if (user) {
+    window.location.replace(DASHBOARD_URL);
+  }
 }
