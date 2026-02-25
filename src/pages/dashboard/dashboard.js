@@ -1,7 +1,11 @@
 // pages/dashboard/dashboard.js
-// Protected page — role-aware dashboard with navbar and stats cards.
-import { authGuard }    from '../../utils/guards.js';
-import { renderNavbar } from '../../components/navbar.js';
+// Protected page — role-aware dashboard with real stat counts.
+import { authGuard }       from '../../utils/guards.js';
+import { renderNavbar }    from '../../components/navbar.js';
+import { showToast }       from '../../components/toast.js';
+import { getStudentCount } from '../../services/students.js';
+import { getTeacherCount } from '../../services/teachers.js';
+import { getUnreadCount }  from '../../services/announcements.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -43,41 +47,36 @@ function statCard({ icon, label, value, color, href = '#' }) {
 
 // ── Role-specific card grids ──────────────────────────────────────────────────
 
-function adminCards() {
+function adminCards({ students, teachers, unread }) {
   return [
     {
       icon: 'bi-people-fill', label: 'Total Students',
-      value: '—', color: 'primary',
+      value: students, color: 'primary',
       href: '/src/pages/students/students.html',
     },
     {
       icon: 'bi-person-badge-fill', label: 'Total Teachers',
-      value: '—', color: 'success',
+      value: teachers, color: 'success',
       href: '/src/pages/teachers/teachers.html',
     },
     {
-      icon: 'bi-journal-check', label: 'Lessons This Month',
-      value: '—', color: 'warning',
-      href: '/src/pages/students/students.html',
-    },
-    {
       icon: 'bi-megaphone-fill', label: 'Unread Announcements',
-      value: '—', color: 'danger',
+      value: unread, color: 'danger',
       href: '/src/pages/announcements/announcements.html',
     },
   ].map(statCard).join('');
 }
 
-function teacherCards() {
+function teacherCards({ students, unread }) {
   return [
     {
       icon: 'bi-people-fill', label: 'My Active Students',
-      value: '—', color: 'primary',
+      value: students, color: 'primary',
       href: '/src/pages/students/students.html',
     },
     {
       icon: 'bi-megaphone-fill', label: 'Unread Announcements',
-      value: '—', color: 'danger',
+      value: unread, color: 'danger',
       href: '/src/pages/announcements/announcements.html',
     },
   ].map(statCard).join('');
@@ -85,25 +84,21 @@ function teacherCards() {
 
 // ── Page template ─────────────────────────────────────────────────────────────
 
-function renderDashboard(profile) {
+function renderDashboard(profile, stats) {
   const isAdmin   = profile.role === 'admin';
   const fullName  = escHtml(
     [profile.first_name, profile.last_name].filter(Boolean).join(' ') || profile.email
   );
   const roleLabel = isAdmin ? 'Admin' : 'Teacher';
   const roleBadge = `<span class="badge bg-${ isAdmin ? 'danger' : 'primary' } ms-2">${roleLabel}</span>`;
-  const cards     = isAdmin ? adminCards() : teacherCards();
+  const cards     = isAdmin ? adminCards(stats) : teacherCards(stats);
 
   return `
     <!-- Welcome header -->
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
       <div>
-        <h1 class="h3 fw-bold mb-1">
-          Welcome back, ${fullName} 👋
-        </h1>
-        <p class="text-muted mb-0">
-          You are signed in as ${roleBadge}
-        </p>
+        <h1 class="h3 fw-bold mb-1">Welcome back, ${fullName} 👋</h1>
+        <p class="text-muted mb-0">You are signed in as ${roleBadge}</p>
       </div>
     </div>
 
@@ -133,21 +128,34 @@ function renderDashboard(profile) {
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 async function init() {
-  // Redirect to login if no session
   const user = await authGuard();
   if (!user) return;
-
   const { profile } = user;
 
-  // Render navbar (pass profile to avoid a second Supabase call)
   await renderNavbar('navbar-container', profile);
 
-  // Swap spinner → content
+  // Fetch stats — fail gracefully so the page still renders
+  const stats = { students: '—', teachers: '—', unread: '—' };
+  try {
+    const [students, unread] = await Promise.all([
+      getStudentCount(),
+      getUnreadCount(),
+    ]);
+    stats.students = students;
+    stats.unread   = unread;
+
+    if (profile.role === 'admin') {
+      stats.teachers = await getTeacherCount();
+    }
+  } catch (err) {
+    showToast('Could not load some stats.', 'warning');
+  }
+
   document.getElementById('page-loading')?.classList.add('d-none');
   const content = document.getElementById('dashboard-content');
   if (content) {
     content.classList.remove('d-none');
-    content.innerHTML = renderDashboard(profile);
+    content.innerHTML = renderDashboard(profile, stats);
   }
 }
 
