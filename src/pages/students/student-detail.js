@@ -19,6 +19,12 @@ import {
   updateLesson,
   softDeleteLesson,
 } from '../../services/lessons.js';
+import {
+  getNotes,
+  createNote,
+  updateNote,
+  softDeleteNote,
+} from '../../services/notes.js';
 
 // ── Module state ──────────────────────────────────────────────────────────────
 
@@ -778,6 +784,243 @@ async function reloadLessons(isAdmin) {
   renderLessons(lessons, isAdmin);
 }
 
+// ── Notes tab ───────────────────────────────────────────────────────────────────
+
+function renderNotes(notes, canDelete) {
+  const addBtn = `
+    <button class="btn btn-sm btn-outline-primary" id="btn-toggle-add-note"
+      data-bs-toggle="collapse" data-bs-target="#add-note-collapse" aria-expanded="false">
+      <i class="bi bi-plus-lg me-1"></i>Add Note
+    </button>`;
+
+  const inlineAddForm = `
+    <div class="collapse mb-4" id="add-note-collapse">
+      <div class="card border-0 shadow-sm" style="background:#f8f9fa">
+        <div class="card-body">
+          <h6 class="fw-semibold mb-3">New Note</h6>
+          <form id="add-note-form" novalidate>
+            <div>
+              <label class="form-label fw-semibold" style="font-size:.8rem">Note <span class="text-danger">*</span></label>
+              <textarea name="body" class="form-control form-control-sm" rows="4"
+                placeholder="Write your observation or note here…" required></textarea>
+              <div class="invalid-feedback">Note cannot be empty.</div>
+            </div>
+            <div id="add-note-form-error" class="alert alert-danger mt-3 d-none"></div>
+            <div class="d-flex gap-2 mt-3">
+              <button type="submit" id="btn-save-note" class="btn btn-primary btn-sm">
+                <span id="btn-save-note-spinner" class="spinner-border spinner-border-sm me-1 d-none" role="status"></span>
+                Save Note
+              </button>
+              <button type="button" id="btn-cancel-add-note" class="btn btn-light btn-sm">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>`;
+
+  const cards = notes.length
+    ? notes.map(n => {
+        const authorName = n.teacher
+          ? `${escHtml(n.teacher.first_name)} ${escHtml(n.teacher.last_name)}`
+          : '—';
+
+        const deleteBtn = canDelete
+          ? `<button class="btn btn-sm btn-outline-danger btn-delete-note"
+               data-id="${n.id}">
+               <i class="bi bi-trash"></i>
+             </button>`
+          : '';
+
+        const inlineEditForm = `
+          <div id="note-edit-${n.id}" class="d-none" style="background:#f8f9fa;border-top:1px solid #e9ecef">
+            <div class="px-4 py-3">
+              <form class="inline-edit-note-form" data-note-id="${n.id}" novalidate>
+                <textarea name="body" class="form-control form-control-sm" rows="4"
+                  required>${escHtml(n.body)}</textarea>
+                <div class="invalid-feedback">Note cannot be empty.</div>
+                <div class="inline-note-error alert alert-danger mt-2 d-none"></div>
+                <div class="d-flex gap-2 mt-3">
+                  <button type="submit" class="btn btn-primary btn-sm btn-save-inline-note">
+                    <span class="edit-note-spinner spinner-border spinner-border-sm me-1 d-none" role="status"></span>
+                    Save Changes
+                  </button>
+                  <button type="button" class="btn btn-light btn-sm btn-cancel-edit-note">Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>`;
+
+        return `
+          <div class="card mb-3 border-0 shadow-sm overflow-hidden">
+            <div class="d-flex align-items-center justify-content-between gap-2 px-4 py-2"
+                 style="background:#f1f3f5;border-bottom:1px solid #e9ecef">
+              <div>
+                <i class="bi bi-person me-2 text-muted" style="font-size:.85rem"></i>
+                <span class="fw-semibold" style="font-size:.9rem">${authorName}</span>
+                <span class="text-muted ms-2" style="font-size:.82rem">· ${formatDate(n.created_at)}</span>
+              </div>
+              <div class="d-flex gap-1 flex-shrink-0">
+                <button class="btn btn-sm btn-outline-secondary btn-edit-note" data-id="${n.id}">
+                  <i class="bi bi-pencil"></i>
+                </button>
+                ${deleteBtn}
+              </div>
+            </div>
+            <div id="note-view-${n.id}" class="card-body py-3">
+              <p class="mb-0 small" style="white-space:pre-wrap;line-height:1.6">${escHtml(n.body)}</p>
+            </div>
+            ${inlineEditForm}
+          </div>`;
+      }).join('')
+    : `<div class="text-center py-5 text-muted">
+         <i class="bi bi-chat-left-text fs-1 opacity-50"></i>
+         <p class="mt-3 mb-0">No notes recorded yet.</p>
+       </div>`;
+
+  document.getElementById('panel-notes').innerHTML = `
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h5 class="fw-semibold mb-0">Notes</h5>
+      ${addBtn}
+    </div>
+    ${inlineAddForm}
+    ${cards}`;
+
+  wireNoteButtons(canDelete);
+}
+
+function wireNoteButtons(canDelete) {
+  // ── Add form ──
+  const collapseEl = document.getElementById('add-note-collapse');
+  const addForm    = document.getElementById('add-note-form');
+  const addErr     = document.getElementById('add-note-form-error');
+  const addSpinner = document.getElementById('btn-save-note-spinner');
+  const addSaveBtn = document.getElementById('btn-save-note');
+
+  document.getElementById('btn-cancel-add-note')?.addEventListener('click', () => {
+    bootstrap.Collapse.getInstance(collapseEl)?.hide();
+    addForm.reset();
+    addForm.classList.remove('was-validated');
+    addErr.classList.add('d-none');
+  });
+
+  addForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!addForm.checkValidity()) { addForm.classList.add('was-validated'); return; }
+
+    addSpinner.classList.remove('d-none');
+    addSaveBtn.disabled = true;
+    addErr.classList.add('d-none');
+
+    try {
+      await createNote(currentStudentId, currentTeacherId, addForm.elements['body'].value);
+      showToast('Note added.', 'success');
+      await reloadNotes(canDelete);
+    } catch (err) {
+      addErr.textContent = err.message;
+      addErr.classList.remove('d-none');
+      addSpinner.classList.add('d-none');
+      addSaveBtn.disabled = false;
+    }
+  });
+
+  // ── Edit toggle ──
+  document.querySelectorAll('.btn-edit-note').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id     = btn.dataset.id;
+      const viewEl = document.getElementById(`note-view-${id}`);
+      const editEl = document.getElementById(`note-edit-${id}`);
+      const isOpen = !editEl.classList.contains('d-none');
+
+      // Close any other open edit forms
+      document.querySelectorAll('[id^="note-edit-"]').forEach(el => {
+        if (el.id !== `note-edit-${id}` && !el.classList.contains('d-none')) {
+          el.classList.add('d-none');
+          document.getElementById(el.id.replace('note-edit-', 'note-view-'))?.classList.remove('d-none');
+        }
+      });
+
+      if (isOpen) {
+        editEl.classList.add('d-none');
+        viewEl.classList.remove('d-none');
+      } else {
+        viewEl.classList.add('d-none');
+        editEl.classList.remove('d-none');
+      }
+    });
+  });
+
+  // ── Cancel inline edit ──
+  document.querySelectorAll('.btn-cancel-edit-note').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const editEl = btn.closest('[id^="note-edit-"]');
+      const id     = editEl.id.replace('note-edit-', '');
+      editEl.classList.add('d-none');
+      document.getElementById(`note-view-${id}`)?.classList.remove('d-none');
+      btn.closest('form').classList.remove('was-validated');
+      btn.closest('form').querySelector('.inline-note-error')?.classList.add('d-none');
+    });
+  });
+
+  // ── Inline edit submit ──
+  document.querySelectorAll('.inline-edit-note-form').forEach(form => {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!form.checkValidity()) { form.classList.add('was-validated'); return; }
+
+      const spinner = form.querySelector('.edit-note-spinner');
+      const saveBtn = form.querySelector('.btn-save-inline-note');
+      const errEl   = form.querySelector('.inline-note-error');
+
+      spinner.classList.remove('d-none');
+      saveBtn.disabled = true;
+      errEl.classList.add('d-none');
+
+      try {
+        await updateNote(form.dataset.noteId, form.elements['body'].value);
+        showToast('Note updated.', 'success');
+        await reloadNotes(canDelete);
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.classList.remove('d-none');
+        spinner.classList.add('d-none');
+        saveBtn.disabled = false;
+      }
+    });
+  });
+
+  // ── Delete (admin + primary only) ──
+  if (canDelete) {
+    document.querySelectorAll('.btn-delete-note').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const { id } = btn.dataset;
+
+        const confirmBtn = document.getElementById('btn-confirm-delete-note');
+        const fresh = confirmBtn.cloneNode(true);
+        confirmBtn.replaceWith(fresh);
+        fresh.addEventListener('click', async () => {
+          try {
+            await softDeleteNote(id);
+            bootstrap.Modal.getInstance(
+              document.getElementById('deleteNoteModal')
+            )?.hide();
+            showToast('Note deleted.', 'warning');
+            await reloadNotes(canDelete);
+          } catch (err) {
+            showToast('Failed to delete: ' + err.message, 'danger');
+          }
+        });
+
+        new bootstrap.Modal(document.getElementById('deleteNoteModal')).show();
+      });
+    });
+  }
+}
+
+async function reloadNotes(canDelete) {
+  const notes = await getNotes(currentStudentId);
+  renderNotes(notes, canDelete);
+}
+
 // ── Placeholder tabs ──────────────────────────────────────────────────────────
 
 function renderPlaceholder(panelId, icon, label) {
@@ -825,9 +1068,16 @@ async function init() {
     const lessons = await getLessons(studentId);
     renderLessons(lessons, isAdmin);
 
+    // Notes — delete allowed for admin or primary teacher
+    const isPrimary = (student.student_teacher_assignments ?? []).some(
+      a => a.teacher_id === currentTeacherId && a.role === 'primary' && !a.active_to
+    );
+    const canDeleteNotes = isAdmin || isPrimary;
+    const notes = await getNotes(studentId);
+    renderNotes(notes, canDeleteNotes);
+
     renderPlaceholder('panel-songs',      'bi-music-note-list', 'Songs');
     renderPlaceholder('panel-recordings', 'bi-mic',             'Recordings');
-    renderPlaceholder('panel-notes',      'bi-chat-left-text',  'Notes');
 
   } catch (err) {
     document.getElementById('page-loading').classList.add('d-none');
