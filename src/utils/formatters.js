@@ -38,3 +38,15 @@ export function toDateTimeLocal(isoString) {
     'T', pad(d.getHours()), ':', pad(d.getMinutes()),
   ].join('');
 }
+
+/**
+ * Format a byte count into a human-readable string (B / KB / MB).
+ * @param {number|null} bytes
+ * @returns {string}
+ */
+export function formatBytes(bytes) {
+  if (!bytes && bytes !== 0) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}

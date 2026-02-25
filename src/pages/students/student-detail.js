@@ -2,7 +2,7 @@
 import { authGuard }    from '../../utils/guards.js';
 import { renderNavbar } from '../../components/navbar.js';
 import { showToast }    from '../../components/toast.js';
-import { formatDate, formatDateTime, toDateTimeLocal } from '../../utils/formatters.js';
+import { formatDate, formatDateTime, toDateTimeLocal, formatBytes } from '../../utils/formatters.js';
 import {
   getStudentById,
   getTeacherProfiles,
@@ -31,6 +31,11 @@ import {
   updateSong,
   deleteSong,
 } from '../../services/songs.js';
+import {
+  getRecordings,
+  uploadRecording,
+  softDeleteRecording,
+} from '../../services/recordings.js';
 
 // ── Module state ──────────────────────────────────────────────────────────────
 
@@ -1343,6 +1348,221 @@ async function reloadSongs(canDelete) {
   renderSongs(songs, canDelete);
 }
 
+// ── Recordings tab ────────────────────────────────────────────────────────────
+
+function mimeIcon(mimeType) {
+  if (!mimeType) return 'bi-file-earmark';
+  if (mimeType.startsWith('audio/')) return 'bi-file-earmark-music';
+  if (mimeType.startsWith('video/')) return 'bi-file-earmark-play';
+  return 'bi-file-earmark';
+}
+
+function mimeLabel(mimeType) {
+  if (!mimeType) return 'File';
+  if (mimeType.startsWith('audio/')) return 'Audio';
+  if (mimeType.startsWith('video/')) return 'Video';
+  return 'File';
+}
+
+function renderRecordings(recordings, canDelete) {
+  const inlineAddForm = `
+    <div class="collapse mb-4" id="add-recording-collapse">
+      <div class="card border-0 shadow-sm" style="background:#f8f9fa">
+        <div class="card-body">
+          <h6 class="fw-semibold mb-3">Upload Recording</h6>
+          <form id="add-recording-form" novalidate>
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label fw-semibold" style="font-size:.8rem">
+                  File <span class="text-danger">*</span>
+                  <span class="text-muted fw-normal">(audio or video, max 100 MB)</span>
+                </label>
+                <input type="file" name="file" class="form-control form-control-sm"
+                  accept="audio/*,video/*" required />
+                <div class="invalid-feedback">Please select an audio or video file.</div>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label fw-semibold" style="font-size:.8rem">Recorded on</label>
+                <input type="datetime-local" name="recorded_at" class="form-control form-control-sm" />
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-semibold" style="font-size:.8rem">Note</label>
+                <textarea name="note" class="form-control form-control-sm" rows="2"
+                  placeholder="Optional context about this recording…"></textarea>
+              </div>
+            </div>
+            <div id="add-recording-progress" class="d-none mt-3">
+              <div class="d-flex align-items-center gap-2 text-muted small">
+                <span class="spinner-border spinner-border-sm" role="status"></span>
+                Uploading… please wait
+              </div>
+            </div>
+            <div id="add-recording-form-error" class="alert alert-danger mt-3 d-none"></div>
+            <div class="d-flex gap-2 mt-3">
+              <button type="submit" id="btn-save-recording" class="btn btn-primary btn-sm">Upload</button>
+              <button type="button" id="btn-cancel-add-recording" class="btn btn-light btn-sm">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>`;
+
+  const cards = recordings.length
+    ? recordings.map(r => {
+        const uploaderName = r.uploader
+          ? `${escHtml(r.uploader.first_name)} ${escHtml(r.uploader.last_name)}`
+          : '—';
+        const dateLabel = r.recorded_at
+          ? formatDate(r.recorded_at)
+          : formatDate(r.created_at);
+        const sizeLabel = formatBytes(r.size_bytes);
+
+        const playerBlock = r.signedUrl
+          ? r.mime_type?.startsWith('video/')
+            ? `<video controls preload="metadata" src="${r.signedUrl}" class="w-100 rounded mt-2" style="max-height:260px"></video>`
+            : `<audio controls preload="metadata" src="${r.signedUrl}" class="w-100 mt-2"></audio>`
+          : `<p class="text-muted small mt-2">Preview unavailable.</p>`;
+
+        const deleteBtn = canDelete
+          ? `<button class="btn btn-sm btn-outline-danger btn-delete-recording"
+               data-id="${r.id}" data-path="${escHtml(r.file_path)}" data-name="${escHtml(r.file_name)}">
+               <i class="bi bi-trash"></i>
+             </button>` : '';
+
+        return `
+          <div class="card mb-3 border-0 shadow-sm overflow-hidden">
+            <div class="d-flex align-items-center justify-content-between gap-2 px-4 py-2"
+                 style="background:#f1f3f5;border-bottom:1px solid #e9ecef">
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                <i class="bi ${mimeIcon(r.mime_type)} text-muted" style="font-size:.85rem"></i>
+                <span class="fw-semibold" style="font-size:.9rem">${escHtml(r.file_name)}</span>
+                <span class="badge text-bg-secondary rounded-pill" style="font-size:.72rem">${mimeLabel(r.mime_type)}</span>
+                ${sizeLabel ? `<span class="text-muted" style="font-size:.78rem">${sizeLabel}</span>` : ''}
+              </div>
+              <div class="d-flex gap-1 flex-shrink-0">
+                ${deleteBtn}
+              </div>
+            </div>
+            <div class="card-body py-3">
+              <div class="d-flex gap-3 mb-1 text-muted" style="font-size:.82rem">
+                <span><i class="bi bi-calendar3 me-1"></i>${dateLabel}</span>
+                <span><i class="bi bi-person me-1"></i>${uploaderName}</span>
+              </div>
+              ${r.note ? `<p class="small mb-2" style="white-space:pre-wrap;line-height:1.6">${escHtml(r.note)}</p>` : ''}
+              ${playerBlock}
+            </div>
+          </div>`;
+      }).join('')
+    : `<div class="text-center py-5 text-muted">
+         <i class="bi bi-mic fs-1 opacity-50"></i>
+         <p class="mt-3 mb-0">No recordings uploaded yet.</p>
+       </div>`;
+
+  document.getElementById('panel-recordings').innerHTML = `
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h5 class="fw-semibold mb-0">Recordings</h5>
+      <button class="btn btn-sm btn-outline-primary"
+        data-bs-toggle="collapse" data-bs-target="#add-recording-collapse" aria-expanded="false">
+        <i class="bi bi-upload me-1"></i>Upload Recording
+      </button>
+    </div>
+    ${inlineAddForm}
+    ${cards}`;
+
+  wireRecordingButtons(canDelete);
+}
+
+function wireRecordingButtons(canDelete) {
+  const collapseEl = document.getElementById('add-recording-collapse');
+  const addForm    = document.getElementById('add-recording-form');
+  const addErr     = document.getElementById('add-recording-form-error');
+  const progress   = document.getElementById('add-recording-progress');
+  const saveBtn    = document.getElementById('btn-save-recording');
+
+  document.getElementById('btn-cancel-add-recording')?.addEventListener('click', () => {
+    bootstrap.Collapse.getInstance(collapseEl)?.hide();
+    addForm.reset();
+    addForm.classList.remove('was-validated');
+    addErr.classList.add('d-none');
+    progress.classList.add('d-none');
+  });
+
+  addForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!addForm.checkValidity()) { addForm.classList.add('was-validated'); return; }
+
+    const file = addForm.elements['file'].files[0];
+    if (!file) { addForm.classList.add('was-validated'); return; }
+
+    if (!file.type.startsWith('audio/') && !file.type.startsWith('video/')) {
+      addErr.textContent = 'Only audio and video files are allowed.';
+      addErr.classList.remove('d-none');
+      return;
+    }
+    if (file.size > 100 * 1024 * 1024) {
+      addErr.textContent = 'File exceeds the 100 MB limit.';
+      addErr.classList.remove('d-none');
+      return;
+    }
+
+    addErr.classList.add('d-none');
+    progress.classList.remove('d-none');
+    saveBtn.disabled = true;
+
+    try {
+      await uploadRecording(
+        currentStudentId,
+        currentTeacherId,
+        file,
+        {
+          note:       addForm.elements['note'].value || null,
+          recordedAt: addForm.elements['recorded_at'].value || null,
+        }
+      );
+      showToast('Recording uploaded.', 'success');
+      await reloadRecordings(canDelete);
+    } catch (err) {
+      progress.classList.add('d-none');
+      saveBtn.disabled = false;
+      addErr.textContent = err.message;
+      addErr.classList.remove('d-none');
+    }
+  });
+
+  // ── Delete (admin + primary only) ──
+  if (canDelete) {
+    document.querySelectorAll('.btn-delete-recording').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const { id, path, name } = btn.dataset;
+        document.getElementById('delete-recording-name').textContent = name;
+
+        const confirmBtn = document.getElementById('btn-confirm-delete-recording');
+        const fresh = confirmBtn.cloneNode(true);
+        confirmBtn.replaceWith(fresh);
+        fresh.addEventListener('click', async () => {
+          try {
+            await softDeleteRecording(id, path);
+            bootstrap.Modal.getInstance(
+              document.getElementById('deleteRecordingModal')
+            )?.hide();
+            showToast('Recording deleted.', 'warning');
+            await reloadRecordings(canDelete);
+          } catch (err) {
+            showToast('Failed to delete: ' + err.message, 'danger');
+          }
+        });
+
+        new bootstrap.Modal(document.getElementById('deleteRecordingModal')).show();
+      });
+    });
+  }
+}
+
+async function reloadRecordings(canDelete) {
+  const recordings = await getRecordings(currentStudentId);
+  renderRecordings(recordings, canDelete);
+}
+
 // ── Placeholder tabs ──────────────────────────────────────────────────────────
 
 function renderPlaceholder(panelId, icon, label) {
@@ -1403,7 +1623,10 @@ async function init() {
     const songs = await getSongs(studentId);
     renderSongs(songs, canDeleteSongs);
 
-    renderPlaceholder('panel-recordings', 'bi-mic', 'Recordings');
+    // Recordings — delete allowed for admin or primary teacher
+    const canDeleteRecordings = isAdmin || isPrimary;
+    const recordings = await getRecordings(studentId);
+    renderRecordings(recordings, canDeleteRecordings);
 
   } catch (err) {
     document.getElementById('page-loading').classList.add('d-none');
