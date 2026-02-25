@@ -1,55 +1,154 @@
 // pages/dashboard/dashboard.js
-// Protected page — role-aware dashboard shell.
-import { authGuard } from '../../utils/guards.js';
-import { logout }    from '../../services/auth.js';
-import { showToast } from '../../components/toast.js';
+// Protected page — role-aware dashboard with navbar and stats cards.
+import { authGuard }    from '../../utils/guards.js';
+import { renderNavbar } from '../../components/navbar.js';
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function escHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ── Stat card builder ─────────────────────────────────────────────────────────
+
+/**
+ * @param {object} opts
+ * @param {string} opts.icon       Bootstrap Icon class (e.g. 'bi-people').
+ * @param {string} opts.label      Card label.
+ * @param {string|number} opts.value  Stat value or '—' placeholder.
+ * @param {string} opts.color      Bootstrap color name (primary, success, …).
+ * @param {string} [opts.href]     Optional link for the card footer.
+ */
+function statCard({ icon, label, value, color, href = '#' }) {
+  return `
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="rounded-3 p-3 bg-${color} bg-opacity-10 text-${color} fs-3">
+            <i class="bi ${icon}"></i>
+          </div>
+          <div>
+            <div class="fs-2 fw-bold lh-1">${escHtml(String(value))}</div>
+            <div class="text-muted small mt-1">${escHtml(label)}</div>
+          </div>
+        </div>
+        <a href="${href}" class="card-footer text-decoration-none text-${color} small bg-transparent border-top-0">
+          View all <i class="bi bi-arrow-right ms-1"></i>
+        </a>
+      </div>
+    </div>`;
+}
+
+// ── Role-specific card grids ──────────────────────────────────────────────────
+
+function adminCards() {
+  return [
+    {
+      icon: 'bi-people-fill', label: 'Total Students',
+      value: '—', color: 'primary',
+      href: '/src/pages/students/students.html',
+    },
+    {
+      icon: 'bi-person-badge-fill', label: 'Total Teachers',
+      value: '—', color: 'success',
+      href: '/src/pages/teachers/teachers.html',
+    },
+    {
+      icon: 'bi-journal-check', label: 'Lessons This Month',
+      value: '—', color: 'warning',
+      href: '/src/pages/students/students.html',
+    },
+    {
+      icon: 'bi-megaphone-fill', label: 'Unread Announcements',
+      value: '—', color: 'danger',
+      href: '/src/pages/announcements/announcements.html',
+    },
+  ].map(statCard).join('');
+}
+
+function teacherCards() {
+  return [
+    {
+      icon: 'bi-people-fill', label: 'My Active Students',
+      value: '—', color: 'primary',
+      href: '/src/pages/students/students.html',
+    },
+    {
+      icon: 'bi-megaphone-fill', label: 'Unread Announcements',
+      value: '—', color: 'danger',
+      href: '/src/pages/announcements/announcements.html',
+    },
+  ].map(statCard).join('');
+}
+
+// ── Page template ─────────────────────────────────────────────────────────────
+
+function renderDashboard(profile) {
+  const isAdmin   = profile.role === 'admin';
+  const fullName  = escHtml(
+    [profile.first_name, profile.last_name].filter(Boolean).join(' ') || profile.email
+  );
+  const roleLabel = isAdmin ? 'Admin' : 'Teacher';
+  const roleBadge = `<span class="badge bg-${ isAdmin ? 'danger' : 'primary' } ms-2">${roleLabel}</span>`;
+  const cards     = isAdmin ? adminCards() : teacherCards();
+
+  return `
+    <!-- Welcome header -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+      <div>
+        <h1 class="h3 fw-bold mb-1">
+          Welcome back, ${fullName} 👋
+        </h1>
+        <p class="text-muted mb-0">
+          You are signed in as ${roleBadge}
+        </p>
+      </div>
+    </div>
+
+    <!-- Stats grid -->
+    <div class="row g-4">
+      ${cards}
+    </div>
+
+    <!-- Quick-actions section -->
+    <div class="mt-5">
+      <h2 class="h5 fw-semibold mb-3">Quick Actions</h2>
+      <div class="d-flex flex-wrap gap-2">
+        <a href="/src/pages/students/students.html" class="btn btn-outline-primary btn-sm">
+          <i class="bi bi-people me-1"></i>${ isAdmin ? 'Manage Students' : 'My Students' }
+        </a>
+        ${ isAdmin ? `
+        <a href="/src/pages/teachers/teachers.html" class="btn btn-outline-success btn-sm">
+          <i class="bi bi-person-badge me-1"></i>Manage Teachers
+        </a>` : '' }
+        <a href="/src/pages/announcements/announcements.html" class="btn btn-outline-danger btn-sm">
+          <i class="bi bi-megaphone me-1"></i>Announcements
+        </a>
+      </div>
+    </div>`;
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
 
 async function init() {
-  // ── Auth guard: redirects to login if no session ──────────────────────────
+  // Redirect to login if no session
   const user = await authGuard();
-  if (!user) return; // redirect already triggered
+  if (!user) return;
 
   const { profile } = user;
 
-  // ── Render welcome stub ───────────────────────────────────────────────────
-  // Full dashboard UI (cards, stats) comes in the next milestone.
+  // Render navbar (pass profile to avoid a second Supabase call)
+  await renderNavbar('navbar-container', profile);
+
+  // Swap spinner → content
+  document.getElementById('page-loading')?.classList.add('d-none');
   const content = document.getElementById('dashboard-content');
   if (content) {
-    content.innerHTML = `
-      <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-          <h2 class="h4 fw-semibold mb-0">
-            Welcome, ${escHtml(profile.first_name || profile.email)} 👋
-          </h2>
-          <span class="badge bg-${
-            profile.role === 'admin' ? 'danger' : 'primary'
-          } mt-1">${profile.role}</span>
-        </div>
-        <button id="btn-logout" class="btn btn-outline-secondary btn-sm">
-          <i class="bi bi-box-arrow-right me-1"></i>Logout
-        </button>
-      </div>
-      <p class="text-muted">Dashboard UI coming next — auth is working correctly.</p>
-    `;
-
-    document.getElementById('btn-logout')?.addEventListener('click', async () => {
-      try {
-        await logout();
-        window.location.replace('/src/pages/login/login.html');
-      } catch (err) {
-        showToast('Logout failed: ' + err.message, 'danger');
-      }
-    });
+    content.classList.remove('d-none');
+    content.innerHTML = renderDashboard(profile);
   }
-}
-
-/** Escape HTML to prevent XSS when injecting user data into innerHTML. */
-function escHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 document.addEventListener('DOMContentLoaded', init);

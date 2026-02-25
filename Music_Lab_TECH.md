@@ -23,7 +23,7 @@ Purpose: Paste into project folder / documentation so every chat has the full co
 
 - Bootstrap (CSS + JS bundle)
 - Layout: grid system, responsive utilities
-- Components: navbar, dashboard, cards, tables, forms, buttons, tabs, modals
+- Components: sidebar, dashboard, cards, tables, forms, buttons, tabs, modals
 - Icons library (recommended)
 - Bootstrap Icons (or equivalent lightweight icon set)
 
