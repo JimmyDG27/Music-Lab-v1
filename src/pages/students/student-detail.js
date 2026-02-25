@@ -2,7 +2,7 @@
 import { authGuard }    from '../../utils/guards.js';
 import { renderNavbar } from '../../components/navbar.js';
 import { showToast }    from '../../components/toast.js';
-import { formatDate }   from '../../utils/formatters.js';
+import { formatDate, formatDateTime, toDateTimeLocal } from '../../utils/formatters.js';
 import {
   getStudentById,
   getTeacherProfiles,
@@ -13,11 +13,16 @@ import {
   updateParent,
   deleteParent,
 } from '../../services/students.js';
+import {
+  getLessons,
+  createLesson,
+  updateLesson,
+  softDeleteLesson,
+} from '../../services/lessons.js';
 
 // ── Module state ──────────────────────────────────────────────────────────────
 
-let currentStudentId = null;
-
+let currentStudentId = null;let currentTeacherId = null; // logged-in user's profile id
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function escHtml(str) {
@@ -455,6 +460,323 @@ async function reloadOverview() {
   const student = await getStudentById(currentStudentId);
   renderOverview(student, true);
 }
+// ── Lessons tab ───────────────────────────────────────────────────────────────────
+
+function renderLessons(lessons, isAdmin) {
+  const addBtn = `
+    <button class="btn btn-sm btn-outline-primary" id="btn-toggle-add-lesson"
+      data-bs-toggle="collapse" data-bs-target="#add-lesson-collapse" aria-expanded="false">
+      <i class="bi bi-plus-lg me-1"></i>Add Lesson
+    </button>`;
+
+  const cards = lessons.length
+    ? lessons.map(l => {
+        const teacherName = l.teacher
+          ? `${escHtml(l.teacher.first_name)} ${escHtml(l.teacher.last_name)}`
+          : '—';
+
+        const editBtn = `
+          <button class="btn btn-sm btn-outline-secondary btn-edit-lesson" data-id="${l.id}">
+            <i class="bi bi-pencil"></i>
+          </button>`;
+
+        const deleteBtn = isAdmin
+          ? `<button class="btn btn-sm btn-outline-danger btn-delete-lesson"
+               data-id="${l.id}" data-date="${escHtml(formatDate(l.held_at))}">
+               <i class="bi bi-trash"></i>
+             </button>`
+          : '';
+
+        const section = (icon, label, value) => value
+          ? `<div class="d-flex gap-2 mt-3">
+               <div class="flex-shrink-0 text-muted" style="width:1rem;margin-top:2px;font-size:.85rem">
+                 <i class="bi ${icon}"></i>
+               </div>
+               <div class="flex-grow-1">
+                 <div class="fw-semibold mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:#6c757d">${label}</div>
+                 <div class="small" style="white-space:pre-wrap;line-height:1.55">${escHtml(value)}</div>
+               </div>
+             </div>`
+          : '';
+
+        const hasSections = l.vocal_technique || l.song_notes || l.homework;
+
+        const inlineEditForm = `
+          <div id="lesson-edit-${l.id}" class="d-none" style="background:#f8f9fa;border-top:1px solid #e9ecef">
+            <div class="px-4 py-3">
+              <form class="inline-edit-lesson-form" data-lesson-id="${l.id}" novalidate>
+                <div class="row g-3">
+                  <div class="col-12 col-sm-5">
+                    <label class="form-label fw-semibold" style="font-size:.8rem">Date &amp; Time <span class="text-danger">*</span></label>
+                    <input type="datetime-local" name="held_at" class="form-control form-control-sm"
+                      value="${toDateTimeLocal(l.held_at)}" required />
+                    <div class="invalid-feedback">Required.</div>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label fw-semibold" style="font-size:.8rem">Vocal Technique</label>
+                    <textarea name="vocal_technique" class="form-control form-control-sm" rows="2"
+                      placeholder="What was practised…">${escHtml(l.vocal_technique || '')}</textarea>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label fw-semibold" style="font-size:.8rem">Song Notes</label>
+                    <textarea name="song_notes" class="form-control form-control-sm" rows="2"
+                      placeholder="Songs worked on…">${escHtml(l.song_notes || '')}</textarea>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label fw-semibold" style="font-size:.8rem">Homework</label>
+                    <textarea name="homework" class="form-control form-control-sm" rows="2"
+                      placeholder="Tasks for next lesson…">${escHtml(l.homework || '')}</textarea>
+                  </div>
+                </div>
+                <div class="inline-edit-error alert alert-danger mt-3 d-none"></div>
+                <div class="d-flex gap-2 mt-3">
+                  <button type="submit" class="btn btn-primary btn-sm btn-save-inline-lesson">
+                    <span class="edit-lesson-spinner spinner-border spinner-border-sm me-1 d-none" role="status"></span>
+                    Save Changes
+                  </button>
+                  <button type="button" class="btn btn-light btn-sm btn-cancel-edit-lesson">Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>`;
+
+        return `
+          <div class="card mb-4 border-0 shadow-sm overflow-hidden">
+            <div class="d-flex align-items-center justify-content-between gap-2 px-4 py-2"
+                 style="background:#f1f3f5;border-bottom:1px solid #e9ecef">
+              <div>
+                <i class="bi bi-calendar3 me-2 text-muted" style="font-size:.85rem"></i>
+                <span class="fw-bold">${formatDate(l.held_at)}</span>
+                <span class="text-muted ms-2" style="font-size:.85rem">· ${teacherName}</span>
+              </div>
+              <div class="d-flex gap-1 flex-shrink-0">
+                ${editBtn}
+                ${deleteBtn}
+              </div>
+            </div>
+            <div id="lesson-view-${l.id}" class="card-body pt-2 pb-3">
+              ${hasSections ? `
+                ${section('bi-lungs', 'Vocal Technique', l.vocal_technique)}
+                ${section('bi-music-note-beamed', 'Song Notes', l.song_notes)}
+                ${section('bi-pencil-square', 'Homework', l.homework)}
+              ` : '<p class="text-muted small mt-2 mb-0">No notes recorded for this lesson.</p>'}
+            </div>
+            ${inlineEditForm}
+          </div>`;
+      }).join('')
+    : `<div class="text-center py-5 text-muted">
+         <i class="bi bi-journal-check fs-1 opacity-50"></i>
+         <p class="mt-3 mb-0">No lessons recorded yet.</p>
+       </div>`;
+
+  const inlineForm = `
+    <div class="collapse mb-4" id="add-lesson-collapse">
+      <div class="card border-0 shadow-sm" style="background:#f8f9fa">
+        <div class="card-body">
+          <h6 class="fw-semibold mb-3">New Lesson</h6>
+          <form id="add-lesson-form" novalidate>
+            <div class="row g-3">
+              <div class="col-12 col-sm-5">
+                <label class="form-label fw-semibold" style="font-size:.8rem">Date &amp; Time <span class="text-danger">*</span></label>
+                <input type="datetime-local" name="held_at" class="form-control form-control-sm" required />
+                <div class="invalid-feedback">Required.</div>
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-semibold" style="font-size:.8rem">Vocal Technique</label>
+                <textarea name="vocal_technique" class="form-control form-control-sm" rows="2" placeholder="What was practised…"></textarea>
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-semibold" style="font-size:.8rem">Song Notes</label>
+                <textarea name="song_notes" class="form-control form-control-sm" rows="2" placeholder="Songs worked on…"></textarea>
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-semibold" style="font-size:.8rem">Homework</label>
+                <textarea name="homework" class="form-control form-control-sm" rows="2" placeholder="Tasks for next lesson…"></textarea>
+              </div>
+            </div>
+            <div id="add-lesson-form-error" class="alert alert-danger mt-3 d-none"></div>
+            <div class="d-flex gap-2 mt-3">
+              <button type="submit" id="btn-save-lesson" class="btn btn-primary btn-sm">
+                <span id="btn-save-lesson-spinner" class="spinner-border spinner-border-sm me-1 d-none" role="status"></span>
+                Save Lesson
+              </button>
+              <button type="button" id="btn-cancel-add-lesson" class="btn btn-light btn-sm">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById('panel-lessons').innerHTML = `
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h5 class="fw-semibold mb-0">Lessons</h5>
+      ${addBtn}
+    </div>
+    ${inlineForm}
+    ${cards}`;
+
+  wireLessonButtons(isAdmin);
+}
+
+function wireLessonButtons(isAdmin) {
+  // Inline add form — default date when collapse opens
+  const collapseEl = document.getElementById('add-lesson-collapse');
+  const addForm    = document.getElementById('add-lesson-form');
+  const addErr     = document.getElementById('add-lesson-form-error');
+  const addSpinner = document.getElementById('btn-save-lesson-spinner');
+  const addSaveBtn = document.getElementById('btn-save-lesson');
+
+  collapseEl?.addEventListener('show.bs.collapse', () => {
+    if (!addForm.elements['held_at'].value) {
+      addForm.elements['held_at'].value = toDateTimeLocal(new Date().toISOString());
+    }
+  });
+
+  // Cancel — collapse and reset
+  document.getElementById('btn-cancel-add-lesson')?.addEventListener('click', () => {
+    bootstrap.Collapse.getInstance(collapseEl)?.hide();
+    addForm.reset();
+    addForm.classList.remove('was-validated');
+    addErr.classList.add('d-none');
+  });
+
+  // Submit inline add form
+  addForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!addForm.checkValidity()) { addForm.classList.add('was-validated'); return; }
+
+    addSpinner.classList.remove('d-none');
+    addSaveBtn.disabled = true;
+    addErr.classList.add('d-none');
+
+    const fd = new FormData(addForm);
+    try {
+      await createLesson(currentStudentId, currentTeacherId, {
+        held_at:         fd.get('held_at'),
+        vocal_technique: fd.get('vocal_technique') || null,
+        song_notes:      fd.get('song_notes')      || null,
+        homework:        fd.get('homework')        || null,
+      });
+      showToast('Lesson added.', 'success');
+      await reloadLessons(isAdmin);
+    } catch (err) {
+      addErr.textContent = err.message;
+      addErr.classList.remove('d-none');
+      addSpinner.classList.add('d-none');
+      addSaveBtn.disabled = false;
+    }
+  });
+
+  // Edit — pencil toggles inline form per card, closes others
+  document.querySelectorAll('.btn-edit-lesson').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id      = btn.dataset.id;
+      const viewEl  = document.getElementById(`lesson-view-${id}`);
+      const editEl  = document.getElementById(`lesson-edit-${id}`);
+      const isOpen  = !editEl.classList.contains('d-none');
+
+      // Close any other open edit forms
+      document.querySelectorAll('[id^="lesson-edit-"]').forEach(el => {
+        if (el.id !== `lesson-edit-${id}` && !el.classList.contains('d-none')) {
+          el.classList.add('d-none');
+          document.getElementById(el.id.replace('lesson-edit-', 'lesson-view-'))?.classList.remove('d-none');
+        }
+      });
+
+      // Toggle this card
+      if (isOpen) {
+        editEl.classList.add('d-none');
+        viewEl.classList.remove('d-none');
+      } else {
+        viewEl.classList.add('d-none');
+        editEl.classList.remove('d-none');
+      }
+    });
+  });
+
+  // Cancel inline edit
+  document.querySelectorAll('.btn-cancel-edit-lesson').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const editEl = btn.closest('[id^="lesson-edit-"]');
+      const id     = editEl.id.replace('lesson-edit-', '');
+      editEl.classList.add('d-none');
+      document.getElementById(`lesson-view-${id}`)?.classList.remove('d-none');
+      btn.closest('form').classList.remove('was-validated');
+      btn.closest('form').querySelector('.inline-edit-error')?.classList.add('d-none');
+    });
+  });
+
+  // Inline edit submit
+  document.querySelectorAll('.inline-edit-lesson-form').forEach(form => {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!form.checkValidity()) { form.classList.add('was-validated'); return; }
+
+      const spinner = form.querySelector('.edit-lesson-spinner');
+      const saveBtn = form.querySelector('.btn-save-inline-lesson');
+      const errEl   = form.querySelector('.inline-edit-error');
+
+      spinner.classList.remove('d-none');
+      saveBtn.disabled = true;
+      errEl.classList.add('d-none');
+
+      const fd = new FormData(form);
+      try {
+        await updateLesson(form.dataset.lessonId, {
+          held_at:         fd.get('held_at'),
+          vocal_technique: fd.get('vocal_technique') || null,
+          song_notes:      fd.get('song_notes')      || null,
+          homework:        fd.get('homework')        || null,
+        });
+        showToast('Lesson updated.', 'success');
+        await reloadLessons(isAdmin);
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.classList.remove('d-none');
+        spinner.classList.add('d-none');
+        saveBtn.disabled = false;
+      }
+    });
+  });
+
+  // Delete (admin only)
+  if (isAdmin) {
+    document.querySelectorAll('.btn-delete-lesson').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const { id, date } = btn.dataset;
+        document.getElementById('delete-lesson-date').textContent = date;
+
+        const confirmBtn = document.getElementById('btn-confirm-delete-lesson');
+        const fresh = confirmBtn.cloneNode(true);
+        confirmBtn.replaceWith(fresh);
+        fresh.addEventListener('click', async () => {
+          try {
+            await softDeleteLesson(id);
+            bootstrap.Modal.getInstance(
+              document.getElementById('deleteLessonModal')
+            )?.hide();
+            showToast('Lesson deleted.', 'warning');
+            await reloadLessons(isAdmin);
+          } catch (err) {
+            showToast('Failed to delete: ' + err.message, 'danger');
+          }
+        });
+
+        new bootstrap.Modal(document.getElementById('deleteLessonModal')).show();
+      });
+    });
+  }
+}
+
+function setupLessonForms() {
+  // Edit and Add are fully inline — no modals needed.
+  // Delete modal is wired per-render in wireLessonButtons.
+}
+
+async function reloadLessons(isAdmin) {
+  const lessons = await getLessons(currentStudentId);
+  renderLessons(lessons, isAdmin);
+}
 
 // ── Placeholder tabs ──────────────────────────────────────────────────────────
 
@@ -477,6 +799,7 @@ async function init() {
 
   const studentId = new URLSearchParams(window.location.search).get('id');
   currentStudentId = studentId;
+  currentTeacherId = profile.id;
   const isAdmin    = profile.role === 'admin';
 
   if (!studentId) {
@@ -498,7 +821,10 @@ async function init() {
       setupAddParentForm();
       setupEditParentForm();
     }
-    renderPlaceholder('panel-lessons',    'bi-journal-check',   'Lessons');
+
+    const lessons = await getLessons(studentId);
+    renderLessons(lessons, isAdmin);
+
     renderPlaceholder('panel-songs',      'bi-music-note-list', 'Songs');
     renderPlaceholder('panel-recordings', 'bi-mic',             'Recordings');
     renderPlaceholder('panel-notes',      'bi-chat-left-text',  'Notes');
