@@ -39,7 +39,9 @@ import {
 
 // ── Module state ──────────────────────────────────────────────────────────────
 
-let currentStudentId = null;let currentTeacherId = null; // logged-in user's profile id
+let currentStudentId = null;
+let currentTeacherId = null; // logged-in user's profile id
+let studentIsActive  = true;
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function escHtml(str) {
@@ -60,7 +62,7 @@ function renderHeader(student) {
 
   const statusBadge = student.is_active
     ? '<span class="badge rounded-pill bg-success-subtle text-success fw-semibold ms-2">Active</span>'
-    : '<span class="badge rounded-pill bg-secondary-subtle text-secondary fw-semibold ms-2">Inactive</span>';
+    : '<span class="badge rounded-pill bg-danger-subtle text-danger fw-semibold ms-2">Inactive</span>';
 
   const meta = [
     student.phone      ? `<span class="me-3"><i class="bi bi-telephone me-1"></i>${escHtml(student.phone)}</span>`      : '',
@@ -122,9 +124,6 @@ function renderOverview(student, isAdmin = false) {
                ${a.active_to   ? formatDate(a.active_to)   : 'open-ended'}
              </div>`
           : '';
-        const phone  = a.teacher?.phone
-          ? `<small class="text-muted"><i class="bi bi-telephone me-1"></i>${escHtml(a.teacher.phone)}</small>`
-          : '';
         const endBtn = isAdmin && isActive
           ? `<button class="btn btn-sm btn-light text-danger btn-end-assignment"
                data-id="${escHtml(a.id)}"
@@ -137,37 +136,121 @@ function renderOverview(student, isAdmin = false) {
         return `<tr>
           <td class="fw-semibold">${name}</td>
           <td>${roleBadge}${statusBadge}${period}</td>
-          <td>${phone}</td>
           <td class="text-end">${endBtn}</td>
         </tr>`;
       }).join('')
-    : '<tr><td colspan="4" class="text-muted fst-italic">No teacher assignments.</td></tr>';
+    : '<tr><td colspan="3" class="text-muted fst-italic">No teacher assignments.</td></tr>';
 
   const addBtn = isAdmin
-    ? `<button class="btn btn-sm btn-outline-primary" id="btn-add-assignment">
+    ? `<button class="btn btn-sm btn-outline-primary"
+         data-bs-toggle="collapse" data-bs-target="#add-assignment-collapse" aria-expanded="false">
          <i class="bi bi-plus-lg me-1"></i>Add Assistant
        </button>`
     : '';
 
+  const addAssistantCollapse = isAdmin ? `
+    <div class="collapse mb-4" id="add-assignment-collapse">
+      <div class="card border-0 shadow-sm" style="background:#f8f9fa">
+        <div class="card-body">
+          <h6 class="fw-semibold mb-3">Add Assistant Teacher</h6>
+          <form id="add-assignment-form" novalidate>
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label fw-semibold" style="font-size:.8rem">Teacher <span class="text-danger">*</span></label>
+                <select id="assign-teacher-select" name="teacher_id" class="form-select form-select-sm" required>
+                  <option value="">Loading…</option>
+                </select>
+                <div class="invalid-feedback">Please select a teacher.</div>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label fw-semibold" style="font-size:.8rem">Active From</label>
+                <input type="date" name="active_from" class="form-control form-control-sm" />
+                <div class="form-text small">Leave blank to start immediately.</div>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label fw-semibold" style="font-size:.8rem">Active To</label>
+                <input type="date" name="active_to" class="form-control form-control-sm" />
+                <div class="form-text small">Leave blank for open-ended.</div>
+              </div>
+            </div>
+            <div id="assign-form-error" class="alert alert-danger mt-3 d-none"></div>
+            <div class="d-flex gap-2 mt-3">
+              <button type="submit" id="btn-save-assignment" class="btn btn-primary btn-sm">
+                <span id="btn-save-assignment-spinner" class="spinner-border spinner-border-sm me-1 d-none" role="status"></span>
+                Add Assistant
+              </button>
+              <button type="button" id="btn-cancel-add-assignment" class="btn btn-light btn-sm">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>` : '';
+
   // Parent/guardian cards
   const addParentBtn = isAdmin
-    ? `<button class="btn btn-sm btn-outline-primary" id="btn-add-parent">
+    ? `<button class="btn btn-sm btn-outline-primary"
+         data-bs-toggle="collapse" data-bs-target="#add-parent-collapse" aria-expanded="false">
          <i class="bi bi-plus-lg me-1"></i>Add Parent
        </button>`
     : '';
+
+  const addParentCollapse = isAdmin ? `
+    <div class="collapse mb-3" id="add-parent-collapse">
+      <div class="card border-0 shadow-sm" style="background:#f8f9fa">
+        <div class="card-body">
+          <h6 class="fw-semibold mb-3">New Parent / Guardian</h6>
+          <form id="add-parent-form" novalidate>
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label fw-semibold" style="font-size:.8rem">Full Name <span class="text-danger">*</span></label>
+                <input type="text" name="full_name" class="form-control form-control-sm" required />
+                <div class="invalid-feedback">Required.</div>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label fw-semibold" style="font-size:.8rem">Relation <span class="text-danger">*</span></label>
+                <select name="relation" class="form-select form-select-sm" required>
+                  <option value="">Choose…</option>
+                  <option value="mother">Mother</option>
+                  <option value="father">Father</option>
+                  <option value="guardian">Guardian</option>
+                </select>
+                <div class="invalid-feedback">Required.</div>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label fw-semibold" style="font-size:.8rem">Phone</label>
+                <input type="tel" name="phone" class="form-control form-control-sm" />
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-semibold" style="font-size:.8rem">Email</label>
+                <input type="email" name="email" class="form-control form-control-sm" />
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-semibold" style="font-size:.8rem">Occupation</label>
+                <input type="text" name="occupation" class="form-control form-control-sm" />
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-semibold" style="font-size:.8rem">Notes</label>
+                <textarea name="notes" class="form-control form-control-sm" rows="2"></textarea>
+              </div>
+            </div>
+            <div id="parent-form-error" class="alert alert-danger mt-3 d-none"></div>
+            <div class="d-flex gap-2 mt-3">
+              <button type="submit" id="btn-save-parent" class="btn btn-primary btn-sm">
+                <span id="btn-save-parent-spinner" class="spinner-border spinner-border-sm me-1 d-none" role="status"></span>
+                Save
+              </button>
+              <button type="button" id="btn-cancel-add-parent" class="btn btn-light btn-sm">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>` : '';
 
   const parentCards = parents.length
     ? parents.map(p => {
         const adminBtns = isAdmin
           ? `<div class="ms-auto d-flex gap-1 flex-shrink-0">
-               <button class="btn btn-sm btn-outline-secondary btn-edit-parent"
-                 data-id="${p.id}"
-                 data-full-name="${escHtml(p.full_name)}"
-                 data-relation="${escHtml(p.relation)}"
-                 data-phone="${escHtml(p.phone || '')}"
-                 data-email="${escHtml(p.email || '')}"
-                 data-occupation="${escHtml(p.occupation || '')}"
-                 data-notes="${escHtml(p.notes || '')}">
+               <button class="btn btn-sm btn-outline-secondary btn-edit-parent" data-id="${p.id}">
                  <i class="bi bi-pencil"></i>
                </button>
                <button class="btn btn-sm btn-outline-danger btn-delete-parent"
@@ -176,10 +259,66 @@ function renderOverview(student, isAdmin = false) {
                </button>
              </div>`
           : '';
+
+        const relationOpts = ['mother', 'father', 'guardian']
+          .map(v => `<option value="${v}"${v === p.relation ? ' selected' : ''}>${v.charAt(0).toUpperCase() + v.slice(1)}</option>`)
+          .join('');
+
+        const inlineEditForm = isAdmin ? `
+          <div id="parent-edit-${p.id}" class="d-none" style="background:#f8f9fa;border-top:1px solid #e9ecef">
+            <div class="px-4 py-3">
+              <form class="inline-edit-parent-form" data-parent-id="${p.id}" novalidate>
+                <div class="row g-3">
+                  <div class="col-12">
+                    <label class="form-label fw-semibold" style="font-size:.8rem">Full Name <span class="text-danger">*</span></label>
+                    <input type="text" name="full_name" class="form-control form-control-sm"
+                      value="${escHtml(p.full_name)}" required />
+                    <div class="invalid-feedback">Required.</div>
+                  </div>
+                  <div class="col-sm-6">
+                    <label class="form-label fw-semibold" style="font-size:.8rem">Relation <span class="text-danger">*</span></label>
+                    <select name="relation" class="form-select form-select-sm" required>
+                      <option value="">Choose…</option>
+                      ${relationOpts}
+                    </select>
+                    <div class="invalid-feedback">Required.</div>
+                  </div>
+                  <div class="col-sm-6">
+                    <label class="form-label fw-semibold" style="font-size:.8rem">Phone</label>
+                    <input type="tel" name="phone" class="form-control form-control-sm"
+                      value="${escHtml(p.phone || '')}" />
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label fw-semibold" style="font-size:.8rem">Email</label>
+                    <input type="email" name="email" class="form-control form-control-sm"
+                      value="${escHtml(p.email || '')}" />
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label fw-semibold" style="font-size:.8rem">Occupation</label>
+                    <input type="text" name="occupation" class="form-control form-control-sm"
+                      value="${escHtml(p.occupation || '')}" />
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label fw-semibold" style="font-size:.8rem">Notes</label>
+                    <textarea name="notes" class="form-control form-control-sm" rows="2">${escHtml(p.notes || '')}</textarea>
+                  </div>
+                </div>
+                <div class="inline-parent-error alert alert-danger mt-2 d-none"></div>
+                <div class="d-flex gap-2 mt-3">
+                  <button type="submit" class="btn btn-primary btn-sm btn-save-inline-parent">
+                    <span class="edit-parent-spinner spinner-border spinner-border-sm me-1 d-none" role="status"></span>
+                    Save Changes
+                  </button>
+                  <button type="button" class="btn btn-light btn-sm btn-cancel-edit-parent">Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>` : '';
+
         return `
         <div class="col-12 col-md-6">
-          <div class="card h-100">
-            <div class="card-body">
+          <div class="card overflow-hidden">
+            <div id="parent-view-${p.id}" class="card-body">
               <div class="d-flex align-items-start gap-2 mb-1">
                 <span class="fw-semibold">${escHtml(p.full_name)}</span>
                 ${adminBtns}
@@ -190,6 +329,7 @@ function renderOverview(student, isAdmin = false) {
               ${p.occupation ? `<div class="small text-muted mt-1">${escHtml(p.occupation)}</div>`                                : ''}
               ${p.notes      ? `<div class="small text-muted fst-italic mt-1">${escHtml(p.notes)}</div>`                          : ''}
             </div>
+            ${inlineEditForm}
           </div>
         </div>`;
       }).join('')
@@ -200,10 +340,11 @@ function renderOverview(student, isAdmin = false) {
       <h5 class="fw-semibold mb-0">Assigned Teachers</h5>
       ${addBtn}
     </div>
+    ${addAssistantCollapse}
     <div class="table-responsive mb-5">
       <table class="table table-sm align-middle">
         <thead>
-          <tr><th>Teacher</th><th>Role &amp; Status</th><th>Contact</th><th></th></tr>
+          <tr><th>Teacher</th><th>Role &amp; Status</th><th></th></tr>
         </thead>
         <tbody>${teacherRows}</tbody>
       </table>
@@ -213,6 +354,7 @@ function renderOverview(student, isAdmin = false) {
       <h5 class="fw-semibold mb-0">Parent / Guardian Contacts</h5>
       ${addParentBtn}
     </div>
+    ${addParentCollapse}
     <div class="row g-3">${parentCards}</div>`;
 
   // Wire admin buttons after render
@@ -222,35 +364,122 @@ function renderOverview(student, isAdmin = false) {
 // ── Parent modal (Admin only) ────────────────────────────────────────────────────────
 
 function wireParentAdminButtons() {
-  // Add Parent button
-  document.getElementById('btn-add-parent')?.addEventListener('click', () => {
-    const form = document.getElementById('add-parent-form');
-    form.reset();
-    form.classList.remove('was-validated');
-    document.getElementById('parent-form-error').classList.add('d-none');
-    new bootstrap.Modal(document.getElementById('addParentModal')).show();
+  // ── Inline Add Parent form ──
+  const addParentCollapseEl = document.getElementById('add-parent-collapse');
+  const addParentForm       = document.getElementById('add-parent-form');
+  const addParentErr        = document.getElementById('parent-form-error');
+  const addParentSpinner    = document.getElementById('btn-save-parent-spinner');
+  const addParentSaveBtn    = document.getElementById('btn-save-parent');
+
+  document.getElementById('btn-cancel-add-parent')?.addEventListener('click', () => {
+    bootstrap.Collapse.getInstance(addParentCollapseEl)?.hide();
+    addParentForm.reset();
+    addParentForm.classList.remove('was-validated');
+    addParentErr.classList.add('d-none');
   });
 
-  // Edit buttons — one per card
+  addParentForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!addParentForm.checkValidity()) { addParentForm.classList.add('was-validated'); return; }
+
+    addParentSpinner.classList.remove('d-none');
+    addParentSaveBtn.disabled = true;
+    addParentErr.classList.add('d-none');
+
+    const fd = new FormData(addParentForm);
+    try {
+      await createParent(currentStudentId, {
+        full_name:  fd.get('full_name'),
+        relation:   fd.get('relation'),
+        phone:      fd.get('phone')      || null,
+        email:      fd.get('email')      || null,
+        occupation: fd.get('occupation') || null,
+        notes:      fd.get('notes')      || null,
+      });
+      showToast('Parent contact added.', 'success');
+      await reloadOverview();
+    } catch (err) {
+      addParentErr.textContent = err.message;
+      addParentErr.classList.remove('d-none');
+      addParentSpinner.classList.add('d-none');
+      addParentSaveBtn.disabled = false;
+    }
+  });
+
+  // ── Edit toggle per card ──
   document.querySelectorAll('.btn-edit-parent').forEach(btn => {
     btn.addEventListener('click', () => {
-      const d = btn.dataset;
-      const form = document.getElementById('edit-parent-form');
-      form.reset();
-      form.classList.remove('was-validated');
-      document.getElementById('edit-parent-form-error').classList.add('d-none');
-      form.dataset.parentId             = d.id;
-      form.elements['full_name'].value  = d.fullName;
-      form.elements['relation'].value   = d.relation;
-      form.elements['phone'].value      = d.phone;
-      form.elements['email'].value      = d.email;
-      form.elements['occupation'].value = d.occupation;
-      form.elements['notes'].value      = d.notes;
-      new bootstrap.Modal(document.getElementById('editParentModal')).show();
+      const id     = btn.dataset.id;
+      const viewEl = document.getElementById(`parent-view-${id}`);
+      const editEl = document.getElementById(`parent-edit-${id}`);
+      const isOpen = !editEl.classList.contains('d-none');
+
+      // Close any other open edit forms
+      document.querySelectorAll('[id^="parent-edit-"]').forEach(el => {
+        if (el.id !== `parent-edit-${id}` && !el.classList.contains('d-none')) {
+          el.classList.add('d-none');
+          document.getElementById(el.id.replace('parent-edit-', 'parent-view-'))?.classList.remove('d-none');
+        }
+      });
+
+      if (isOpen) {
+        editEl.classList.add('d-none');
+        viewEl.classList.remove('d-none');
+      } else {
+        viewEl.classList.add('d-none');
+        editEl.classList.remove('d-none');
+      }
     });
   });
 
-  // Delete buttons — one per card
+  // ── Cancel inline edit ──
+  document.querySelectorAll('.btn-cancel-edit-parent').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const editEl = btn.closest('[id^="parent-edit-"]');
+      const id     = editEl.id.replace('parent-edit-', '');
+      editEl.classList.add('d-none');
+      document.getElementById(`parent-view-${id}`)?.classList.remove('d-none');
+      btn.closest('form').classList.remove('was-validated');
+      btn.closest('form').querySelector('.inline-parent-error')?.classList.add('d-none');
+    });
+  });
+
+  // ── Inline edit submit ──
+  document.querySelectorAll('.inline-edit-parent-form').forEach(form => {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!form.checkValidity()) { form.classList.add('was-validated'); return; }
+
+      const spinner = form.querySelector('.edit-parent-spinner');
+      const saveBtn = form.querySelector('.btn-save-inline-parent');
+      const errEl   = form.querySelector('.inline-parent-error');
+
+      spinner.classList.remove('d-none');
+      saveBtn.disabled = true;
+      errEl.classList.add('d-none');
+
+      const fd = new FormData(form);
+      try {
+        await updateParent(form.dataset.parentId, {
+          full_name:  fd.get('full_name'),
+          relation:   fd.get('relation'),
+          phone:      fd.get('phone')      || null,
+          email:      fd.get('email')      || null,
+          occupation: fd.get('occupation') || null,
+          notes:      fd.get('notes')      || null,
+        });
+        showToast('Parent contact updated.', 'success');
+        await reloadOverview();
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.classList.remove('d-none');
+        spinner.classList.add('d-none');
+        saveBtn.disabled = false;
+      }
+    });
+  });
+
+  // ── Delete buttons — one per card ──
   document.querySelectorAll('.btn-delete-parent').forEach(btn => {
     btn.addEventListener('click', () => {
       const { id, name } = btn.dataset;
@@ -277,95 +506,7 @@ function wireParentAdminButtons() {
   });
 }
 
-function setupEditParentForm() {
-  const form      = document.getElementById('edit-parent-form');
-  const spinner   = document.getElementById('btn-save-edit-parent-spinner');
-  const saveBtn   = document.getElementById('btn-save-edit-parent');
-  const formError = document.getElementById('edit-parent-form-error');
-  const modalEl   = document.getElementById('editParentModal');
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!form.checkValidity()) { form.classList.add('was-validated'); return; }
-
-    spinner.classList.remove('d-none');
-    saveBtn.disabled = true;
-    formError.classList.add('d-none');
-
-    const fd = new FormData(form);
-    try {
-      await updateParent(form.dataset.parentId, {
-        full_name:  fd.get('full_name'),
-        relation:   fd.get('relation'),
-        phone:      fd.get('phone')      || null,
-        email:      fd.get('email')      || null,
-        occupation: fd.get('occupation') || null,
-        notes:      fd.get('notes')      || null,
-      });
-      bootstrap.Modal.getInstance(modalEl)?.hide();
-      showToast('Parent contact updated.', 'success');
-      await reloadOverview();
-    } catch (err) {
-      formError.textContent = err.message;
-      formError.classList.remove('d-none');
-    } finally {
-      spinner.classList.add('d-none');
-      saveBtn.disabled = false;
-    }
-  });
-
-  modalEl.addEventListener('hidden.bs.modal', () => {
-    form.reset();
-    form.classList.remove('was-validated');
-    formError.classList.add('d-none');
-  });
-}
-
-function setupAddParentForm() {
-  const form      = document.getElementById('add-parent-form');
-  const spinner   = document.getElementById('btn-save-parent-spinner');
-  const saveBtn   = document.getElementById('btn-save-parent');
-  const formError = document.getElementById('parent-form-error');
-  const modalEl   = document.getElementById('addParentModal');
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!form.checkValidity()) { form.classList.add('was-validated'); return; }
-
-    spinner.classList.remove('d-none');
-    saveBtn.disabled = true;
-    formError.classList.add('d-none');
-
-    const fd = new FormData(form);
-    try {
-      await createParent(currentStudentId, {
-        full_name:  fd.get('full_name'),
-        relation:   fd.get('relation'),
-        phone:      fd.get('phone')      || null,
-        email:      fd.get('email')      || null,
-        occupation: fd.get('occupation') || null,
-        notes:      fd.get('notes')      || null,
-      });
-      bootstrap.Modal.getInstance(modalEl)?.hide();
-      showToast('Parent contact added.', 'success');
-      await reloadOverview();
-    } catch (err) {
-      formError.textContent = err.message;
-      formError.classList.remove('d-none');
-    } finally {
-      spinner.classList.add('d-none');
-      saveBtn.disabled = false;
-    }
-  });
-
-  modalEl.addEventListener('hidden.bs.modal', () => {
-    form.reset();
-    form.classList.remove('was-validated');
-    formError.classList.add('d-none');
-  });
-}
-
-// ── Assignment modals (Admin only) ────────────────────────────────────────────
+// ── Assignment / Teacher dropdown ────────────────────────────────────────────
 
 // Rebuild teacher options each time, excluding the current primary teacher
 async function loadTeacherOptions(excludeTeacherId) {
@@ -384,15 +525,55 @@ async function loadTeacherOptions(excludeTeacherId) {
 }
 
 function wireOverviewAdminButtons(primaryTeacherId) {
-  // "+ Add Assistant" button
-  document.getElementById('btn-add-assignment')?.addEventListener('click', async () => {
-    const form = document.getElementById('add-assignment-form');
-    form.reset();
-    form.classList.remove('was-validated');
-    document.getElementById('assign-form-error').classList.add('d-none');
+  // ── Inline Add Assistant form ──
+  const assignCollapseEl = document.getElementById('add-assignment-collapse');
+  const assignForm       = document.getElementById('add-assignment-form');
+  const assignErr        = document.getElementById('assign-form-error');
+  const assignSpinner    = document.getElementById('btn-save-assignment-spinner');
+  const assignSaveBtn    = document.getElementById('btn-save-assignment');
+
+  // Load teacher options when the collapse opens
+  assignCollapseEl?.addEventListener('show.bs.collapse', async () => {
+    assignForm.reset();
+    assignForm.classList.remove('was-validated');
+    assignErr.classList.add('d-none');
     await loadTeacherOptions(primaryTeacherId);
-    new bootstrap.Modal(document.getElementById('addAssignmentModal')).show();
   });
+
+  document.getElementById('btn-cancel-add-assignment')?.addEventListener('click', () => {
+    bootstrap.Collapse.getInstance(assignCollapseEl)?.hide();
+    assignForm.reset();
+    assignForm.classList.remove('was-validated');
+    assignErr.classList.add('d-none');
+  });
+
+  assignForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!assignForm.checkValidity()) { assignForm.classList.add('was-validated'); return; }
+
+    assignSpinner.classList.remove('d-none');
+    assignSaveBtn.disabled = true;
+    assignErr.classList.add('d-none');
+
+    const fd = new FormData(assignForm);
+    try {
+      await addAssignment(
+        currentStudentId,
+        fd.get('teacher_id'),
+        'assistant',
+        fd.get('active_from') || null,
+        fd.get('active_to')   || null
+      );
+      showToast('Assistant teacher added.', 'success');
+      await reloadOverview();
+    } catch (err) {
+      assignErr.textContent = err.message;
+      assignErr.classList.remove('d-none');
+      assignSpinner.classList.add('d-none');
+      assignSaveBtn.disabled = false;
+    }
+  });
+
   // Wire Add Parent button
   wireParentAdminButtons();
   // "End" buttons per row
@@ -425,53 +606,6 @@ function wireOverviewAdminButtons(primaryTeacherId) {
   });
 }
 
-function setupAddAssignmentForm(isAdmin) {
-  if (!isAdmin) return;
-
-  const form      = document.getElementById('add-assignment-form');
-  const spinner   = document.getElementById('btn-save-assignment-spinner');
-  const saveBtn   = document.getElementById('btn-save-assignment');
-  const formError = document.getElementById('assign-form-error');
-  const modalEl   = document.getElementById('addAssignmentModal');
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!form.checkValidity()) { form.classList.add('was-validated'); return; }
-
-    spinner.classList.remove('d-none');
-    saveBtn.disabled = true;
-    formError.classList.add('d-none');
-
-    const fd = new FormData(form);
-
-    try {
-      // Always assistant — role is fixed in this modal
-      await addAssignment(
-        currentStudentId,
-        fd.get('teacher_id'),
-        'assistant',
-        fd.get('active_from') || null,
-        fd.get('active_to')   || null
-      );
-      bootstrap.Modal.getInstance(modalEl)?.hide();
-      showToast('Assistant teacher added.', 'success');
-      await reloadOverview();
-    } catch (err) {
-      formError.textContent = err.message;
-      formError.classList.remove('d-none');
-    } finally {
-      spinner.classList.add('d-none');
-      saveBtn.disabled = false;
-    }
-  });
-
-  modalEl.addEventListener('hidden.bs.modal', () => {
-    form.reset();
-    form.classList.remove('was-validated');
-    formError.classList.add('d-none');
-  });
-}
-
 // Reload student from Supabase and re-render overview tab without full page reload
 async function reloadOverview() {
   const student = await getStudentById(currentStudentId);
@@ -480,11 +614,11 @@ async function reloadOverview() {
 // ── Lessons tab ───────────────────────────────────────────────────────────────────
 
 function renderLessons(lessons, isAdmin) {
-  const addBtn = `
+  const addBtn = studentIsActive ? `
     <button class="btn btn-sm btn-outline-primary" id="btn-toggle-add-lesson"
       data-bs-toggle="collapse" data-bs-target="#add-lesson-collapse" aria-expanded="false">
       <i class="bi bi-plus-lg me-1"></i>Add Lesson
-    </button>`;
+    </button>` : '';
 
   const cards = lessons.length
     ? lessons.map(l => {
@@ -504,19 +638,20 @@ function renderLessons(lessons, isAdmin) {
              </button>`
           : '';
 
-        const section = (icon, label, value) => value
-          ? `<div class="d-flex gap-2 mt-3">
-               <div class="flex-shrink-0 text-muted" style="width:1rem;margin-top:2px;font-size:.85rem">
-                 <i class="bi ${icon}"></i>
-               </div>
-               <div class="flex-grow-1">
-                 <div class="fw-semibold mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:#6c757d">${label}</div>
-                 <div class="small" style="white-space:pre-wrap;line-height:1.55">${escHtml(value)}</div>
-               </div>
-             </div>`
-          : '';
-
-        const hasSections = l.vocal_technique || l.song_notes || l.homework;
+        const col = (icon, label, value) => `
+          <div class="col-12 col-md-4">
+            <div class="d-flex gap-2 h-100">
+              <div class="flex-shrink-0 text-muted" style="width:1rem;margin-top:2px;font-size:.85rem">
+                <i class="bi ${icon}"></i>
+              </div>
+              <div class="flex-grow-1">
+                <div class="mb-1" style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#495057;padding-bottom:4px;border-bottom:2px solid #dee2e6;display:inline-block">${label}</div>
+                ${value
+                  ? `<div class="small" style="white-space:pre-wrap;line-height:1.55">${escHtml(value)}</div>`
+                  : `<div class="small text-muted fst-italic">&mdash;</div>`}
+              </div>
+            </div>
+          </div>`;
 
         const inlineEditForm = `
           <div id="lesson-edit-${l.id}" class="d-none" style="background:#f8f9fa;border-top:1px solid #e9ecef">
@@ -571,12 +706,12 @@ function renderLessons(lessons, isAdmin) {
                 ${deleteBtn}
               </div>
             </div>
-            <div id="lesson-view-${l.id}" class="card-body pt-2 pb-3">
-              ${hasSections ? `
-                ${section('bi-lungs', 'Vocal Technique', l.vocal_technique)}
-                ${section('bi-music-note-beamed', 'Song Notes', l.song_notes)}
-                ${section('bi-pencil-square', 'Homework', l.homework)}
-              ` : '<p class="text-muted small mt-2 mb-0">No notes recorded for this lesson.</p>'}
+            <div id="lesson-view-${l.id}" class="card-body pt-3 pb-3">
+              <div class="row g-3">
+                ${col('bi-lungs',            'Vocal Technique', l.vocal_technique)}
+                ${col('bi-music-note-beamed','Song Notes',       l.song_notes)}
+                ${col('bi-pencil-square',    'Homework',         l.homework)}
+              </div>
             </div>
             ${inlineEditForm}
           </div>`;
@@ -629,7 +764,7 @@ function renderLessons(lessons, isAdmin) {
       <h5 class="fw-semibold mb-0">Lessons</h5>
       ${addBtn}
     </div>
-    ${inlineForm}
+    ${studentIsActive ? inlineForm : ''}
     ${cards}`;
 
   wireLessonButtons(isAdmin);
@@ -798,11 +933,11 @@ async function reloadLessons(isAdmin) {
 // ── Notes tab ───────────────────────────────────────────────────────────────────
 
 function renderNotes(notes, canDelete) {
-  const addBtn = `
+  const addBtn = studentIsActive ? `
     <button class="btn btn-sm btn-outline-primary" id="btn-toggle-add-note"
       data-bs-toggle="collapse" data-bs-target="#add-note-collapse" aria-expanded="false">
       <i class="bi bi-plus-lg me-1"></i>Add Note
-    </button>`;
+    </button>` : '';
 
   const inlineAddForm = `
     <div class="collapse mb-4" id="add-note-collapse">
@@ -893,7 +1028,7 @@ function renderNotes(notes, canDelete) {
       <h5 class="fw-semibold mb-0">Notes</h5>
       ${addBtn}
     </div>
-    ${inlineAddForm}
+    ${studentIsActive ? inlineAddForm : ''}
     ${cards}`;
 
   wireNoteButtons(canDelete);
@@ -1045,11 +1180,11 @@ function renderSongs(songs, canDelete) {
     .map(([val, m]) => `<option value="${val}">${m.label}</option>`)
     .join('');
 
-  const addBtn = `
+  const addBtn = studentIsActive ? `
     <button class="btn btn-sm btn-outline-primary" id="btn-toggle-add-song"
       data-bs-toggle="collapse" data-bs-target="#add-song-collapse" aria-expanded="false">
       <i class="bi bi-plus-lg me-1"></i>Add Song
-    </button>`;
+    </button>` : '';
 
   const inlineAddForm = `
     <div class="collapse mb-4" id="add-song-collapse">
@@ -1194,7 +1329,7 @@ function renderSongs(songs, canDelete) {
       <h5 class="fw-semibold mb-0">Songs</h5>
       ${addBtn}
     </div>
-    ${inlineAddForm}
+    ${studentIsActive ? inlineAddForm : ''}
     ${cards}`;
 
   wireSongButtons(canDelete);
@@ -1461,12 +1596,12 @@ function renderRecordings(recordings, canDelete) {
   document.getElementById('panel-recordings').innerHTML = `
     <div class="d-flex align-items-center justify-content-between mb-3">
       <h5 class="fw-semibold mb-0">Recordings</h5>
-      <button class="btn btn-sm btn-outline-primary"
+      ${studentIsActive ? `<button class="btn btn-sm btn-outline-primary"
         data-bs-toggle="collapse" data-bs-target="#add-recording-collapse" aria-expanded="false">
         <i class="bi bi-upload me-1"></i>Upload Recording
-      </button>
+      </button>` : ''}
     </div>
-    ${inlineAddForm}
+    ${studentIsActive ? inlineAddForm : ''}
     ${cards}`;
 
   wireRecordingButtons(canDelete);
@@ -1595,17 +1730,13 @@ async function init() {
 
   try {
     const student = await getStudentById(studentId);
+    studentIsActive = student.is_active ?? true;
 
     document.getElementById('page-loading').classList.add('d-none');
     document.getElementById('student-content').classList.remove('d-none');
 
     renderHeader(student);
     renderOverview(student, isAdmin);
-    if (isAdmin) {
-      setupAddAssignmentForm(isAdmin);
-      setupAddParentForm();
-      setupEditParentForm();
-    }
 
     const lessons = await getLessons(studentId);
     renderLessons(lessons, isAdmin);

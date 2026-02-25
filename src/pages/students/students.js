@@ -47,7 +47,7 @@ function buildRow(student) {
   const assignments = student.student_teacher_assignments ?? [];
   const statusBadge = student.is_active
     ? '<span class="badge rounded-pill bg-success-subtle text-success fw-semibold">Active</span>'
-    : '<span class="badge rounded-pill bg-secondary-subtle text-secondary fw-semibold">Inactive</span>';
+    : '<span class="badge rounded-pill bg-danger-subtle text-danger fw-semibold">Inactive</span>';
   const href = `/src/pages/students/student-detail.html?id=${escHtml(student.id)}`;
 
   // Primary teacher name
@@ -90,7 +90,8 @@ function buildRow(student) {
     </button>` : '';
 
   return `
-    <tr data-search="${escHtml((student.first_name + ' ' + student.last_name).toLowerCase())}">
+    <tr data-search="${escHtml((student.first_name + ' ' + student.last_name).toLowerCase())}"
+      ${!student.is_active ? 'style="background:rgba(220,53,69,.06)"' : ''}>
       <td>
         <a href="${href}" class="text-decoration-none fw-semibold text-body">${name}</a>
       </td>
