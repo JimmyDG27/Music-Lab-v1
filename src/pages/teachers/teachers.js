@@ -63,10 +63,11 @@ function buildCard(teacher) {
   const isSelf     = teacher.id === currentUserId;
 
   const stuCount   = isAdmin ? activeStudentCount(teacher.student_teacher_assignments) : null;
-  const stuLine    = isAdmin
-    ? `<div class="text-muted" style="font-size:.75rem">
-         ${stuCount} active student${stuCount !== 1 ? 's' : ''}
-       </div>`
+  const stuStat    = isAdmin
+    ? `<span class="badge rounded-pill fw-normal mt-1 d-inline-flex align-items-center gap-1"
+           style="font-size:.72rem;background:#eef2ff;color:#4361ee;border:1px solid #c7d2fe">
+         <i class="bi bi-people-fill"></i>${stuCount} active student${stuCount !== 1 ? 's' : ''}
+       </span>`
     : '';
 
   const editBtn = isAdmin ? `
@@ -99,7 +100,7 @@ function buildCard(teacher) {
                 <div class="fw-semibold lh-sm">
                   ${escHtml(fullName)}${selfBadge}${bdayBadge}
                 </div>
-                ${stuLine}
+                ${stuStat}
               </div>
             </div>
             ${editBtn}
