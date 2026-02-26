@@ -108,7 +108,7 @@ Legend:
 - phone (text, nullable)
 - email (text, nullable)
 - photo_url (text, nullable)
-- social_links (jsonb, nullable)
+- social_links (text, nullable)
 - birth_date (date, nullable)
 - created_at (timestamptz)
 

@@ -4,41 +4,161 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Teachers — Music Lab</title>
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
-      crossorigin="anonymous"
-    />
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
-    />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="/src/styles/main.css" />
   </head>
   <body>
-    <nav id="navbar-placeholder"></nav>
 
-    <main class="container py-4">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2 class="h4 fw-semibold mb-0"><i class="bi bi-person-badge me-2"></i>Teachers</h2>
-        <button id="btn-add-teacher" class="btn btn-primary btn-sm d-none">
-          <i class="bi bi-plus-lg me-1"></i>Add Teacher
-        </button>
-      </div>
+    <div class="ml-app">
+      <div id="navbar-container"></div>
 
-      <div class="row g-3" id="teachers-grid">
-        <!-- Teacher cards rendered by teachers.js -->
+      <div class="ml-main">
+        <div class="ml-content">
+
+          <!-- Page header -->
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+            <div>
+              <h1 class="h3 fw-bold mb-0">Teachers</h1>
+              <p class="text-muted small mb-0" id="teachers-subtitle"></p>
+            </div>
+            <button id="btn-invite-teacher" type="button" class="btn btn-primary d-none"
+              data-bs-toggle="collapse" data-bs-target="#invite-teacher-collapse" aria-expanded="false">
+              <i class="bi bi-envelope-plus me-1"></i>Invite Teacher
+            </button>
+          </div>
+
+          <!-- Invite Teacher inline form (Admin only) -->
+          <div class="collapse mb-3" id="invite-teacher-collapse">
+            <div class="card border-0 shadow-sm" style="background:#f8f9fa">
+              <div class="card-body">
+                <h6 class="fw-semibold mb-1">Invite Teacher</h6>
+                <p class="text-muted small mb-3">An email invitation will be sent to set up their account.</p>
+                <form id="invite-teacher-form" novalidate>
+                  <div class="row g-3">
+                    <div class="col-sm-4">
+                      <label class="form-label fw-semibold" style="font-size:.85rem">First Name <span class="text-danger">*</span></label>
+                      <input type="text" name="first_name" class="form-control form-control-sm" required />
+                      <div class="invalid-feedback">Required.</div>
+                    </div>
+                    <div class="col-sm-4">
+                      <label class="form-label fw-semibold" style="font-size:.85rem">Last Name <span class="text-danger">*</span></label>
+                      <input type="text" name="last_name" class="form-control form-control-sm" required />
+                      <div class="invalid-feedback">Required.</div>
+                    </div>
+                    <div class="col-sm-4">
+                      <label class="form-label fw-semibold" style="font-size:.85rem">Email <span class="text-danger">*</span></label>
+                      <input type="email" name="email" class="form-control form-control-sm" required />
+                      <div class="invalid-feedback">Valid email required.</div>
+                    </div>
+                  </div>
+                  <div id="invite-form-error" class="alert alert-danger mt-3 d-none"></div>
+                  <div class="d-flex gap-2 mt-3">
+                    <button type="submit" id="btn-send-invite" class="btn btn-primary btn-sm">
+                      <span id="btn-invite-spinner" class="spinner-border spinner-border-sm me-1 d-none" role="status"></span>
+                      Send Invite
+                    </button>
+                    <button type="button" id="btn-cancel-invite" class="btn btn-light btn-sm">Cancel</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <!-- Edit Teacher inline form (Admin only) -->
+          <div class="collapse mb-3" id="edit-teacher-collapse">
+            <div class="card border-0 shadow-sm" style="background:#f8f9fa">
+              <div class="card-body">
+                <h6 class="fw-semibold mb-3" id="edit-teacher-title">Edit Teacher</h6>
+                <form id="edit-teacher-form" novalidate>
+                  <input type="hidden" name="teacher_id" id="edit-teacher-id" />
+                  <div class="row g-3">
+                    <div class="col-sm-6">
+                      <label class="form-label fw-semibold" style="font-size:.85rem">First Name <span class="text-danger">*</span></label>
+                      <input type="text" name="first_name" id="edit-first-name" class="form-control form-control-sm" required />
+                      <div class="invalid-feedback">Required.</div>
+                    </div>
+                    <div class="col-sm-6">
+                      <label class="form-label fw-semibold" style="font-size:.85rem">Last Name <span class="text-danger">*</span></label>
+                      <input type="text" name="last_name" id="edit-last-name" class="form-control form-control-sm" required />
+                      <div class="invalid-feedback">Required.</div>
+                    </div>
+                    <div class="col-sm-6">
+                      <label class="form-label fw-semibold" style="font-size:.85rem">Phone</label>
+                      <input type="tel" name="phone" id="edit-phone" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-sm-6">
+                      <label class="form-label fw-semibold" style="font-size:.85rem">Email</label>
+                      <input type="email" name="email" id="edit-email" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-sm-6">
+                      <label class="form-label fw-semibold" style="font-size:.85rem">Date of Birth</label>
+                      <input type="date" name="birth_date" id="edit-birth-date" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-12">
+                      <label class="form-label fw-semibold" style="font-size:.85rem">Social Link</label>
+                      <input type="url" name="social_links" id="edit-social-links" class="form-control form-control-sm"
+                        placeholder="https://…" />
+                    </div>
+                  </div>
+                  <div id="edit-teacher-error" class="alert alert-danger mt-3 d-none"></div>
+                  <div class="d-flex gap-2 mt-3">
+                    <button type="submit" id="btn-update-teacher" class="btn btn-primary btn-sm">
+                      <span id="btn-update-spinner" class="spinner-border spinner-border-sm me-1 d-none" role="status"></span>
+                      Save Changes
+                    </button>
+                    <button type="button" id="btn-cancel-edit-teacher" class="btn btn-light btn-sm">Cancel</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <!-- Search + Sort -->
+          <div class="d-flex flex-wrap gap-2 mb-4 align-items-center">
+            <div style="max-width:300px;min-width:200px;flex:1">
+              <div class="input-group">
+                <span class="input-group-text bg-white border-end-0">
+                  <i class="bi bi-search text-secondary"></i>
+                </span>
+                <input type="text" id="search-input" class="form-control border-start-0 ps-0"
+                  placeholder="Search by name…" />
+              </div>
+            </div>
+            <select id="sort-select" class="form-select" style="min-width:180px;max-width:220px">
+              <option value="az">A → Z</option>
+              <option value="za">Z → A</option>
+              <option value="students">Most Students</option>
+              <option value="bday">Birthdays First</option>
+            </select>
+          </div>
+
+          <!-- Loading -->
+          <div id="page-loading" class="d-flex justify-content-center mt-5">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading…</span>
+            </div>
+          </div>
+
+          <!-- Content -->
+          <div id="teachers-content" class="d-none">
+            <div class="row g-3" id="teachers-grid"></div>
+            <!-- Empty state -->
+            <div id="empty-state" class="d-none text-center py-5">
+              <i class="bi bi-person-badge fs-1 text-secondary opacity-50"></i>
+              <p class="text-muted mt-3 mb-0">No teachers found.</p>
+            </div>
+          </div>
+
+        </div>
       </div>
-    </main>
+    </div>
 
     <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
 
-    <script
-      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
       integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
-      crossorigin="anonymous"
-    ></script>
+      crossorigin="anonymous"></script>
     <script type="module" src="./teachers.js"></script>
   </body>
 </html>

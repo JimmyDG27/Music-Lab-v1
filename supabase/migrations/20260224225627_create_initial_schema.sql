@@ -15,7 +15,7 @@ create table public.profiles (
   phone        text,
   email        text,
   photo_url    text,
-  social_links jsonb,
+  social_links text,     -- changed from jsonb → text (see migration 20260226000001)
   birth_date   date,
   created_at   timestamptz not null default now()
 );
