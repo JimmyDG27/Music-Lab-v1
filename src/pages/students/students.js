@@ -110,19 +110,27 @@ function buildRow(student) {
 // ── Sort ─────────────────────────────────────────────────────────────────────
 
 function sortStudents(students) {
-  const list = [...students];
-  if (currentSort === 'az') {
-    list.sort((a, b) =>
-      (a.first_name + ' ' + a.last_name)
-        .localeCompare(b.first_name + ' ' + b.last_name));
-  } else if (currentSort === 'za') {
-    list.sort((a, b) =>
-      (b.first_name + ' ' + b.last_name)
-        .localeCompare(a.first_name + ' ' + a.last_name));
-  } else if (currentSort === 'newest') {
-    list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  }
-  return list;
+  const active   = students.filter(s => s.is_active);
+  const inactive = students.filter(s => !s.is_active);
+
+  const sortFn = (list) => {
+    const copy = [...list];
+    if (currentSort === 'az') {
+      copy.sort((a, b) =>
+        (a.first_name + ' ' + a.last_name)
+          .localeCompare(b.first_name + ' ' + b.last_name));
+    } else if (currentSort === 'za') {
+      copy.sort((a, b) =>
+        (b.first_name + ' ' + b.last_name)
+          .localeCompare(a.first_name + ' ' + a.last_name));
+    } else if (currentSort === 'newest') {
+      copy.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    }
+    return copy;
+  };
+
+  // Inactive students always go to the bottom, sorted among themselves
+  return [...sortFn(active), ...sortFn(inactive)];
 }
 
 // ── Render ────────────────────────────────────────────────────────────────────
@@ -211,11 +219,18 @@ async function setupModal() {
   document.getElementById('btn-add-student').classList.remove('d-none');
   await ensureTeachersLoaded();
 
-  const form      = document.getElementById('add-student-form');
-  const spinner   = document.getElementById('btn-save-spinner');
-  const saveBtn   = document.getElementById('btn-save-student');
-  const formError = document.getElementById('form-error');
-  const modalEl   = document.getElementById('addStudentModal');
+  const form       = document.getElementById('add-student-form');
+  const spinner    = document.getElementById('btn-save-spinner');
+  const saveBtn    = document.getElementById('btn-save-student');
+  const formError  = document.getElementById('form-error');
+  const collapseEl = document.getElementById('add-student-collapse');
+
+  document.getElementById('btn-cancel-add-student').addEventListener('click', () => {
+    bootstrap.Collapse.getInstance(collapseEl)?.hide();
+    form.reset();
+    form.classList.remove('was-validated');
+    formError.classList.add('d-none');
+  });
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -235,7 +250,7 @@ async function setupModal() {
         birth_date:          fd.get('birth_date')         || null,
         primary_teacher_id:  fd.get('primary_teacher_id') || null,
       });
-      bootstrap.Modal.getInstance(modalEl)?.hide();
+      bootstrap.Collapse.getInstance(collapseEl)?.hide();
       form.reset();
       form.classList.remove('was-validated');
       showToast('Student added successfully.', 'success');
@@ -248,22 +263,23 @@ async function setupModal() {
       saveBtn.disabled = false;
     }
   });
-
-  modalEl.addEventListener('hidden.bs.modal', () => {
-    form.reset();
-    form.classList.remove('was-validated');
-    formError.classList.add('d-none');
-  });
 }
 
 // ── Edit + Status modals (Admin only) ───────────────────────────────────────
 
 function setupEditModal() {
-  const form      = document.getElementById('edit-student-form');
-  const spinner   = document.getElementById('btn-update-spinner');
-  const saveBtn   = document.getElementById('btn-update-student');
-  const formError = document.getElementById('edit-form-error');
-  const modalEl   = document.getElementById('editStudentModal');
+  const form       = document.getElementById('edit-student-form');
+  const spinner    = document.getElementById('btn-update-spinner');
+  const saveBtn    = document.getElementById('btn-update-student');
+  const formError  = document.getElementById('edit-form-error');
+  const collapseEl = document.getElementById('edit-student-collapse');
+
+  document.getElementById('btn-cancel-edit-student').addEventListener('click', () => {
+    bootstrap.Collapse.getInstance(collapseEl)?.hide();
+    form.reset();
+    form.classList.remove('was-validated');
+    formError.classList.add('d-none');
+  });
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -292,7 +308,7 @@ function setupEditModal() {
         await reassignPrimaryTeacher(studentId, newTeacherId);
       }
 
-      bootstrap.Modal.getInstance(modalEl)?.hide();
+      bootstrap.Collapse.getInstance(collapseEl)?.hide();
       showToast('Student updated.', 'success');
       await loadStudents();
     } catch (err) {
@@ -302,12 +318,6 @@ function setupEditModal() {
       spinner.classList.add('d-none');
       saveBtn.disabled = false;
     }
-  });
-
-  modalEl.addEventListener('hidden.bs.modal', () => {
-    form.reset();
-    form.classList.remove('was-validated');
-    formError.classList.add('d-none');
   });
 }
 
@@ -323,11 +333,17 @@ function wireAdminRowButtons() {
       const student = allStudents.find(s => s.id === btn.dataset.id);
       if (!student) return;
 
+      // Close add-form if open
+      const addCollapse = document.getElementById('add-student-collapse');
+      bootstrap.Collapse.getInstance(addCollapse)?.hide();
+
       // Current primary teacher (open assignment)
       const primaryAssignment = (student.student_teacher_assignments ?? [])
         .find(a => a.role === 'primary' && !a.active_to);
       const currentTeacherId = primaryAssignment?.teacher_id ?? '';
 
+      document.getElementById('edit-student-title').textContent =
+        `Edit — ${student.first_name} ${student.last_name}`;
       document.getElementById('edit-student-id').value        = student.id;
       document.getElementById('edit-first-name').value        = student.first_name ?? '';
       document.getElementById('edit-last-name').value         = student.last_name  ?? '';
@@ -338,7 +354,11 @@ function wireAdminRowButtons() {
       document.getElementById('edit-teacher-select').value    = currentTeacherId;
       document.getElementById('edit-original-teacher').value  = currentTeacherId;
 
-      new bootstrap.Modal(document.getElementById('editStudentModal')).show();
+      const editCollapse = document.getElementById('edit-student-collapse');
+      let instance = bootstrap.Collapse.getInstance(editCollapse);
+      if (!instance) instance = new bootstrap.Collapse(editCollapse, { toggle: false });
+      instance.show();
+      editCollapse.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   });
 
@@ -423,8 +443,8 @@ async function init() {
 
     await loadStudents();
     setupSearch();
+    setupSort();
     if (isAdmin) {
-      setupSort();
       setupEditModal();
       await setupModal();
     }
