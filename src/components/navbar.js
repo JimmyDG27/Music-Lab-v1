@@ -115,13 +115,15 @@ function buildSidebarHTML(profile) {
 
       <!-- Profile + Logout -->
       <div class="ml-sidebar-footer px-4 py-4">
-        <div class="d-flex align-items-center gap-3 mb-3">
+        <a href="/src/pages/profile/profile.html"
+           class="d-flex align-items-center gap-3 mb-3 text-decoration-none"
+           style="color:inherit">
           <div class="ml-avatar" aria-hidden="true">${avatarChars}</div>
           <div class="overflow-hidden">
             <div class="ml-user-name text-truncate" title="${fullName}">${fullName}</div>
             <span class="ml-badge ${roleClass}">${escHtml(roleLabel)}</span>
           </div>
-        </div>
+        </a>
         <button
           id="nav-logout-btn"
           type="button"

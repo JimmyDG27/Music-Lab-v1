@@ -48,6 +48,62 @@ export async function logout() {
 }
 
 /**
+ * Update the current user's profile fields in the profiles table.
+ * @param {{ first_name?, last_name?, phone?, birth_date?, social_links?, photo_url? }} fields
+ */
+export async function updateProfile(fields) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated.');
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      first_name:   fields.first_name   ?? undefined,
+      last_name:    fields.last_name    ?? undefined,
+      phone:        fields.phone        !== undefined ? (fields.phone || null)        : undefined,
+      birth_date:   fields.birth_date   !== undefined ? (fields.birth_date || null)   : undefined,
+      social_links: fields.social_links !== undefined ? (fields.social_links || null) : undefined,
+      photo_url:    fields.photo_url    !== undefined ? (fields.photo_url || null)    : undefined,
+    })
+    .eq('id', user.id);
+
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Set (or update) the current user's password.
+ * Works for the invite flow (exchanged token already in session) and for voluntary password change.
+ */
+export async function setPassword(newPassword) {
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Exchange an invite / recovery token from the URL hash for a session.
+ * Call this on the set-password page before allowing the user to set their password.
+ * Returns the session if successful, throws otherwise.
+ */
+export async function exchangeInviteToken() {
+  // Supabase puts the token in the URL hash when following an invite link
+  const hash   = window.location.hash.substring(1);
+  const params = new URLSearchParams(hash);
+  const token  = params.get('access_token');
+  const type   = params.get('type'); // 'invite' or 'recovery'
+
+  if (!token) throw new Error('No invite token found in URL.');
+
+  // setSession accepts the raw access token from the invite link
+  const { data, error } = await supabase.auth.setSession({
+    access_token:  token,
+    refresh_token: params.get('refresh_token') ?? token,
+  });
+
+  if (error) throw new Error(error.message);
+  return data.session;
+}
+
+/**
  * Return { session, profile } for the currently signed-in user,
  * or null if no active session exists.
  */

@@ -13,6 +13,8 @@ export default defineConfig({
         teachers:      'src/pages/teachers/teachers.html',
         announcements: 'src/pages/announcements/announcements.html',
         announcementDetail: 'src/pages/announcements/announcement-detail.html',
+        profile:      'src/pages/profile/profile.html',
+        setPassword:  'src/pages/auth/set-password.html',
       },
     },
   },

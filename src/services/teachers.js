@@ -63,8 +63,11 @@ export async function updateTeacher(id, { first_name, last_name, phone, email, b
  * Sends a Supabase magic-link invite email; the DB trigger creates the profile.
  */
 export async function inviteTeacher({ email, first_name, last_name }) {
+  // Build redirectTo pointing to the set-password page on whichever origin is running
+  const redirectTo = `${window.location.origin}/src/pages/auth/set-password.html`;
+
   const { data, error } = await supabase.functions.invoke('invite-teacher', {
-    body: { email, first_name, last_name },
+    body: { email, first_name, last_name, redirectTo },
   });
 
   if (error) throw new Error(error.message ?? 'Invite failed');
