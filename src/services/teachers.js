@@ -21,20 +21,24 @@ export async function getTeacherCount() {
  */
 export async function getTeachers(withAssignments = false) {
   const selectFields = withAssignments
-    ? `id, first_name, last_name, email, phone, photo_url, birth_date, social_links, created_at,
+    ? `id, first_name, last_name, email, phone, photo_url, birth_date, social_links, created_at, is_active,
        student_teacher_assignments!student_teacher_assignments_teacher_id_fkey(
          id, role, active_to,
          student:students!student_teacher_assignments_student_id_fkey(id, first_name, last_name, is_active)
        )`
-    : 'id, first_name, last_name, email, phone, photo_url, birth_date, social_links, created_at';
+    : 'id, first_name, last_name, email, phone, photo_url, birth_date, social_links, created_at, is_active';
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('profiles')
     .select(selectFields)
     .eq('role', 'teacher')
     .order('last_name',  { ascending: true })
     .order('first_name', { ascending: true });
 
+  // Teachers only see active colleagues; admins see all
+  if (!withAssignments) query = query.eq('is_active', true);
+
+  const { data, error } = await query;
   if (error) throw error;
   return data ?? [];
 }
@@ -71,6 +75,19 @@ export async function inviteTeacher({ email, first_name, last_name }) {
   });
 
   if (error) throw new Error(error.message ?? 'Invite failed');
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
+/**
+ * Deactivate a teacher: marks profile inactive, closes assignments, bans auth user.
+ * Admin only (enforced inside the Edge Function).
+ */
+export async function deactivateTeacher(teacherId) {
+  const { data, error } = await supabase.functions.invoke('deactivate-teacher', {
+    body: { teacher_id: teacherId },
+  });
+  if (error) throw new Error(error.message ?? 'Deactivation failed');
   if (data?.error) throw new Error(data.error);
   return data;
 }

@@ -16,6 +16,7 @@ import { getTeachers } from '../../services/teachers.js';
 let allAnnouncements = [];
 let allTeachers      = [];
 let isAdmin          = false;
+let teacherSince     = null; // profile.created_at for teachers, null for admins
 let pendingDeleteId  = null;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -365,7 +366,7 @@ function setupDeleteModal() {
 // ── Data load ─────────────────────────────────────────────────────────────────
 
 async function loadAnnouncements() {
-  allAnnouncements = await getAnnouncements();
+  allAnnouncements = await getAnnouncements(teacherSince);
   const count = allAnnouncements.length;
   document.getElementById('announcements-subtitle').textContent =
     `${count} announcement${count !== 1 ? 's' : ''}`;
@@ -382,6 +383,7 @@ async function init() {
   await renderNavbar('navbar-container', profile);
 
   isAdmin = profile.role === 'admin';
+  if (!isAdmin) teacherSince = profile.created_at;
 
   document.getElementById('page-loading').classList.add('d-none');
   document.getElementById('announcements-content').classList.remove('d-none');

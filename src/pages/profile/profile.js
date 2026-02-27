@@ -104,6 +104,7 @@ function setupProfileForm() {
 // ── Password form ─────────────────────────────────────────────────────────────
 
 function setupPasswordForm() {
+  const modal   = new bootstrap.Modal(document.getElementById('change-password-modal'));
   const form    = document.getElementById('password-form');
   const spinner = document.getElementById('btn-pw-spinner');
   const btn     = document.getElementById('btn-change-password');
@@ -111,17 +112,23 @@ function setupPasswordForm() {
   const pwInput = document.getElementById('new-password');
   const cfmInput = document.getElementById('confirm-password');
 
+  // Reset form when modal closes
+  document.getElementById('change-password-modal').addEventListener('hidden.bs.modal', () => {
+    form.reset();
+    form.classList.remove('was-validated');
+    errEl.classList.add('d-none');
+    cfmInput.setCustomValidity('');
+  });
+
   cfmInput.addEventListener('input', () => cfmInput.setCustomValidity(''));
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    errEl.classList.add('d-none');
+  btn.addEventListener('click', async () => {
     form.classList.add('was-validated');
+    errEl.classList.add('d-none');
     if (!form.checkValidity()) return;
 
     const pw  = pwInput.value;
     const cfm = cfmInput.value;
-
     if (pw !== cfm) {
       cfmInput.setCustomValidity('no-match');
       cfmInput.reportValidity();
@@ -134,8 +141,7 @@ function setupPasswordForm() {
 
     try {
       await setPassword(pw);
-      form.reset();
-      form.classList.remove('was-validated');
+      modal.hide();
       showToast('Password updated successfully.', 'success');
     } catch (err) {
       errEl.textContent = err.message;

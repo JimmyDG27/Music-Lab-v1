@@ -6,10 +6,11 @@ import { supabase } from './supabase.js';
 
 /**
  * Fetch all visible announcements (RLS filters for teachers automatically).
+ * sinceDate: if provided, only announcements created on or after that date are returned.
  * Includes read status for current user and comment count.
  */
-export async function getAnnouncements() {
-  const { data, error } = await supabase
+export async function getAnnouncements(sinceDate = null) {
+  let query = supabase
     .from('announcements')
     .select(`
       id, title, body, starts_at, ends_at, image_url, audience_type, created_at, updated_at,
@@ -21,6 +22,10 @@ export async function getAnnouncements() {
     `)
     .order('created_at', { ascending: false });
 
+  // Teachers only see announcements created after their own account was created
+  if (sinceDate) query = query.gte('created_at', sinceDate);
+
+  const { data, error } = await query;
   if (error) throw error;
   return data ?? [];
 }

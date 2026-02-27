@@ -8,14 +8,14 @@ import { showToast }      from './toast.js';
 // ── Route definitions ─────────────────────────────────────────────────────────
 
 const ADMIN_LINKS = [
-  { href: '/src/pages/dashboard/dashboard.html',         icon: 'bi-squares',      label: 'Dashboard'     },
+  { href: '/src/pages/dashboard/dashboard.html',         icon: 'bi-grid',          label: 'Dashboard'     },
   { href: '/src/pages/students/students.html',           icon: 'bi-people',        label: 'Students'      },
   { href: '/src/pages/teachers/teachers.html',           icon: 'bi-person-badge',  label: 'Teachers'      },
   { href: '/src/pages/announcements/announcements.html', icon: 'bi-megaphone',     label: 'Announcements' },
 ];
 
 const TEACHER_LINKS = [
-  { href: '/src/pages/dashboard/dashboard.html',         icon: 'bi-squares',      label: 'Dashboard'     },
+  { href: '/src/pages/dashboard/dashboard.html',         icon: 'bi-grid',          label: 'Dashboard'     },
   { href: '/src/pages/students/students.html',           icon: 'bi-people',        label: 'My Students'   },
   { href: '/src/pages/teachers/teachers.html',           icon: 'bi-person-badge',  label: 'Teachers'      },
   { href: '/src/pages/announcements/announcements.html', icon: 'bi-megaphone',     label: 'Announcements' },

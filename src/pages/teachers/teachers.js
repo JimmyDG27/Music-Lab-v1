@@ -7,6 +7,7 @@ import {
   getTeachers,
   updateTeacher,
   inviteTeacher,
+  deactivateTeacher,
 } from '../../services/teachers.js';
 
 // ── Module state ──────────────────────────────────────────────────────────────
@@ -15,6 +16,7 @@ let allTeachers   = [];
 let isAdmin       = false;
 let currentUserId = null;
 let currentSort   = 'az';
+let showInactive  = false;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -70,12 +72,29 @@ function buildCard(teacher) {
        </span>`
     : '';
 
+  const isInactive = teacher.is_active === false;
+
   const editBtn = isAdmin ? `
     <button class="btn btn-sm btn-light btn-edit-teacher"
       data-id="${escHtml(teacher.id)}"
       title="Edit">
       <i class="bi bi-pencil"></i>
     </button>` : '';
+
+  const deactivateBtn = (isAdmin && !isSelf && !isInactive) ? `
+    <button class="btn btn-sm btn-light btn-deactivate-teacher text-danger"
+      data-id="${escHtml(teacher.id)}"
+      data-name="${escHtml(teacher.first_name + ' ' + teacher.last_name)}"
+      title="Deactivate">
+      <i class="bi bi-person-x"></i>
+    </button>` : '';
+
+  const inactiveBadge = isInactive
+    ? `<span class="badge rounded-pill fw-normal ms-1"
+           style="font-size:.68rem;background:#f8d7da;color:#842029;border:1px solid #f5c2c7">
+         <i class="bi bi-slash-circle me-1"></i>Deactivated
+       </span>`
+    : '';
 
   const selfBadge = isSelf
     ? `<span class="badge bg-primary-subtle text-primary rounded-pill ms-2" style="font-size:.7rem">You</span>`
@@ -87,23 +106,26 @@ function buildCard(teacher) {
 
   return `
     <div class="col-sm-6 col-lg-4">
-      <div class="card h-100 border-0 shadow-sm">
+      <div class="card h-100 border-0 shadow-sm" style="${isInactive ? 'opacity:.65' : ''}">
         <div class="card-body d-flex flex-column gap-2 p-4">
 
           <div class="d-flex align-items-center justify-content-between mb-1">
             <div class="d-flex align-items-center gap-3">
               <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0
-                           fw-bold text-white" style="width:46px;height:46px;font-size:1.05rem;background:${color}">
+                           fw-bold text-white" style="width:46px;height:46px;font-size:1.05rem;background:${isInactive ? '#adb5bd' : color}">
                 ${initText}
               </div>
               <div>
                 <div class="fw-semibold lh-sm">
-                  ${escHtml(fullName)}${selfBadge}${bdayBadge}
+                  ${escHtml(fullName)}${selfBadge}${bdayBadge}${inactiveBadge}
                 </div>
                 ${stuStat}
               </div>
             </div>
-            ${editBtn}
+            <div class="d-flex gap-1">
+              ${editBtn}
+              ${deactivateBtn}
+            </div>
           </div>
 
           <hr class="my-1" />
@@ -186,10 +208,9 @@ function sortTeachers(list) {
 
 function applyFilters() {
   const q = document.getElementById('search-input').value.trim().toLowerCase();
-  const filtered = q
-    ? allTeachers.filter(t =>
-        (t.first_name + ' ' + t.last_name).toLowerCase().includes(q))
-    : allTeachers;
+  let filtered = showInactive ? allTeachers : allTeachers.filter(t => t.is_active !== false);
+  if (q) filtered = filtered.filter(t =>
+    (t.first_name + ' ' + t.last_name).toLowerCase().includes(q));
   renderGrid(sortTeachers(filtered));
 }
 
@@ -297,7 +318,45 @@ function setupEditForm() {
   });
 }
 
-// ── Wire edit buttons after each render ───────────────────────────────────────
+// ── Deactivate Modal ─────────────────────────────────────────────────────────
+
+function setupDeactivateModal() {
+  const modal    = new bootstrap.Modal(document.getElementById('deactivate-teacher-modal'));
+  const errEl    = document.getElementById('deactivate-modal-error');
+  const spinner  = document.getElementById('btn-deactivate-spinner');
+  const confirmBtn = document.getElementById('btn-confirm-deactivate');
+  let pendingId  = null;
+
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.btn-deactivate-teacher');
+    if (!btn) return;
+    pendingId = btn.dataset.id;
+    document.getElementById('deactivate-teacher-name').textContent = btn.dataset.name;
+    errEl.classList.add('d-none');
+    modal.show();
+  });
+
+  confirmBtn.addEventListener('click', async () => {
+    if (!pendingId) return;
+    spinner.classList.remove('d-none');
+    confirmBtn.disabled = true;
+    errEl.classList.add('d-none');
+    try {
+      await deactivateTeacher(pendingId);
+      modal.hide();
+      showToast('Teacher deactivated. Their account has been blocked.', 'success');
+      await loadTeachers();
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.classList.remove('d-none');
+    } finally {
+      spinner.classList.add('d-none');
+      confirmBtn.disabled = false;
+    }
+  });
+}
+
+// ── Wire edit + deactivate buttons after each render ─────────────────────────
 
 function wireAdminCardButtons() {
   document.querySelectorAll('.btn-edit-teacher').forEach(btn => {
@@ -332,9 +391,13 @@ function wireAdminCardButtons() {
 
 async function loadTeachers() {
   allTeachers = await getTeachers(isAdmin);
-  const count = allTeachers.length;
-  document.getElementById('teachers-subtitle').textContent =
-    `${count} teacher${count !== 1 ? 's' : ''}`;
+  const active   = allTeachers.filter(t => t.is_active !== false).length;
+  const inactive = allTeachers.length - active;
+  // Only admins know about inactive teachers
+  const subtitle = (isAdmin && inactive > 0)
+    ? `${active} teacher${active !== 1 ? 's' : ''} · ${inactive} inactive`
+    : `${active} teacher${active !== 1 ? 's' : ''}`;
+  document.getElementById('teachers-subtitle').textContent = subtitle;
   applyFilters();
 }
 
@@ -359,6 +422,19 @@ async function init() {
     if (isAdmin) {
       setupInviteForm();
       setupEditForm();
+      setupDeactivateModal();
+      // Show inactive toggle
+      const toggleEl = document.createElement('div');
+      toggleEl.className = 'form-check form-switch ms-auto align-self-center';
+      toggleEl.innerHTML = `
+        <input class="form-check-input" type="checkbox" id="toggle-inactive" role="switch">
+        <label class="form-check-label small text-muted" for="toggle-inactive">Show inactive</label>
+      `;
+      document.querySelector('.d-flex.flex-wrap.gap-2.mb-4').appendChild(toggleEl);
+      document.getElementById('toggle-inactive').addEventListener('change', (e) => {
+        showInactive = e.target.checked;
+        applyFilters();
+      });
     }
   } catch (err) {
     showToast('Failed to load teachers: ' + err.message, 'danger');

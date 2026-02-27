@@ -97,7 +97,7 @@ function renderDashboard(profile, stats) {
     <!-- Welcome header -->
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
       <div>
-        <h1 class="h3 fw-bold mb-1">Welcome back, ${fullName} 👋</h1>
+        <h1 class="h3 fw-bold mb-1">Welcome back, <span class="text-primary">${fullName}</span> 👋</h1>
         <p class="text-muted mb-0">You are signed in as ${roleBadge}</p>
       </div>
     </div>
@@ -107,22 +107,7 @@ function renderDashboard(profile, stats) {
       ${cards}
     </div>
 
-    <!-- Quick-actions section -->
-    <div class="mt-5">
-      <h2 class="h5 fw-semibold mb-3">Quick Actions</h2>
-      <div class="d-flex flex-wrap gap-2">
-        <a href="/src/pages/students/students.html" class="btn btn-outline-primary btn-sm">
-          <i class="bi bi-people me-1"></i>${ isAdmin ? 'Manage Students' : 'My Students' }
-        </a>
-        ${ isAdmin ? `
-        <a href="/src/pages/teachers/teachers.html" class="btn btn-outline-success btn-sm">
-          <i class="bi bi-person-badge me-1"></i>Manage Teachers
-        </a>` : '' }
-        <a href="/src/pages/announcements/announcements.html" class="btn btn-outline-danger btn-sm">
-          <i class="bi bi-megaphone me-1"></i>Announcements
-        </a>
-      </div>
-    </div>`;
+    `;
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
