@@ -60,6 +60,24 @@ export async function updateLesson(id, { held_at, vocal_technique, song_notes, h
 }
 
 /**
+ * Count non-deleted lessons.
+ * Admin: pass no argument → all lessons.
+ * Teacher: pass their profile id → only their lessons.
+ */
+export async function getLessonCount(teacherId = null) {
+  let query = supabase
+    .from('lessons')
+    .select('*', { count: 'exact', head: true })
+    .is('deleted_at', null);
+
+  if (teacherId) query = query.eq('teacher_id', teacherId);
+
+  const { count, error } = await query;
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
  * Soft-delete a lesson (Admin only — enforced by RLS).
  */
 export async function softDeleteLesson(id) {

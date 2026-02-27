@@ -6,6 +6,7 @@ import { showToast }       from '../../components/toast.js';
 import { getStudentCount } from '../../services/students.js';
 import { getTeacherCount } from '../../services/teachers.js';
 import { getUnreadCount }  from '../../services/announcements.js';
+import { getLessonCount }  from '../../services/lessons.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -25,7 +26,12 @@ function escHtml(str) {
  * @param {string} opts.color      Bootstrap color name (primary, success, …).
  * @param {string} [opts.href]     Optional link for the card footer.
  */
-function statCard({ icon, label, value, color, href = '#' }) {
+function statCard({ icon, label, value, color, href = null }) {
+  const footer = href
+    ? `<a href="${href}" class="card-footer text-decoration-none text-${color} small bg-transparent border-top-0">
+         View all <i class="bi bi-arrow-right ms-1"></i>
+       </a>`
+    : '';
   return `
     <div class="col-12 col-sm-6 col-xl-3">
       <div class="card border-0 shadow-sm h-100">
@@ -38,16 +44,14 @@ function statCard({ icon, label, value, color, href = '#' }) {
             <div class="text-muted small mt-1">${escHtml(label)}</div>
           </div>
         </div>
-        <a href="${href}" class="card-footer text-decoration-none text-${color} small bg-transparent border-top-0">
-          View all <i class="bi bi-arrow-right ms-1"></i>
-        </a>
+        ${footer}
       </div>
     </div>`;
 }
 
 // ── Role-specific card grids ──────────────────────────────────────────────────
 
-function adminCards({ students, teachers, unread }) {
+function adminCards({ students, teachers, lessons }) {
   return [
     {
       icon: 'bi-people-fill', label: 'Total Students',
@@ -60,14 +64,13 @@ function adminCards({ students, teachers, unread }) {
       href: '/src/pages/teachers/teachers.html',
     },
     {
-      icon: 'bi-megaphone-fill', label: 'Unread Announcements',
-      value: unread, color: 'danger',
-      href: '/src/pages/announcements/announcements.html',
+      icon: 'bi-journal-check', label: 'Total Lessons',
+      value: lessons, color: 'warning',
     },
   ].map(statCard).join('');
 }
 
-function teacherCards({ students, unread }) {
+function teacherCards({ students, unread, lessons }) {
   return [
     {
       icon: 'bi-people-fill', label: 'My Active Students',
@@ -78,6 +81,10 @@ function teacherCards({ students, unread }) {
       icon: 'bi-megaphone-fill', label: 'Unread Announcements',
       value: unread, color: 'danger',
       href: '/src/pages/announcements/announcements.html',
+    },
+    {
+      icon: 'bi-journal-check', label: 'My Lessons Taught',
+      value: lessons, color: 'warning',
     },
   ].map(statCard).join('');
 }
@@ -120,17 +127,20 @@ async function init() {
   await renderNavbar('navbar-container', profile);
 
   // Fetch stats — fail gracefully so the page still renders
-  const stats = { students: '—', teachers: '—', unread: '—' };
+  const stats = { students: '—', teachers: '—', lessons: '—', unread: '—' };
   try {
-    const [students, unread] = await Promise.all([
-      getStudentCount(),
-      getUnreadCount(),
-    ]);
-    stats.students = students;
-    stats.unread   = unread;
+    stats.students = await getStudentCount();
 
     if (profile.role === 'admin') {
-      stats.teachers = await getTeacherCount();
+      [stats.teachers, stats.lessons] = await Promise.all([
+        getTeacherCount(),
+        getLessonCount(),
+      ]);
+    } else {
+      [stats.unread, stats.lessons] = await Promise.all([
+        getUnreadCount(),
+        getLessonCount(profile.id),
+      ]);
     }
   } catch (err) {
     showToast('Could not load some stats.', 'warning');
