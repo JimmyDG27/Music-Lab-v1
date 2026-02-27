@@ -64,7 +64,7 @@ export async function getStudentById(id) {
       student_parents(*),
       student_teacher_assignments(
         id, teacher_id, role, active_from, active_to,
-        teacher:profiles!teacher_id(id, first_name, last_name, phone, email, photo_url)
+        teacher:profiles!teacher_id(id, first_name, last_name, phone, email)
       )
     `)
     .eq('id', id)

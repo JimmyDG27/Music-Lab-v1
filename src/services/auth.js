@@ -14,7 +14,7 @@ export async function getSession() {
 export async function getProfile(userId) {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, role, first_name, last_name, email, photo_url')
+    .select('id, role, first_name, last_name, email')
     .eq('id', userId)
     .single();
   if (error) throw error;
@@ -49,7 +49,7 @@ export async function logout() {
 
 /**
  * Update the current user's profile fields in the profiles table.
- * @param {{ first_name?, last_name?, phone?, birth_date?, social_links?, photo_url? }} fields
+ * @param {{ first_name?, last_name?, phone?, birth_date?, social_links? }} fields
  */
 export async function updateProfile(fields) {
   const { data: { user } } = await supabase.auth.getUser();
@@ -63,7 +63,6 @@ export async function updateProfile(fields) {
       phone:        fields.phone        !== undefined ? (fields.phone || null)        : undefined,
       birth_date:   fields.birth_date   !== undefined ? (fields.birth_date || null)   : undefined,
       social_links: fields.social_links !== undefined ? (fields.social_links || null) : undefined,
-      photo_url:    fields.photo_url    !== undefined ? (fields.photo_url || null)    : undefined,
     })
     .eq('id', user.id);
 

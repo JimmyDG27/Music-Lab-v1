@@ -71,7 +71,7 @@ Access rule (conceptual):
 
 ### 1.5 Student Page UX (MPA)
 - /students/{id}
-  - Header: name + photo + key info
+  - Header: name + key info
   - Tabs:
     - Overview (student + parents contacts)
     - Lessons
@@ -107,7 +107,6 @@ Legend:
 - last_name (text)
 - phone (text, nullable)
 - email (text, nullable)
-- photo_url (text, nullable)
 - social_links (text, nullable)
 - birth_date (date, nullable)
 - created_at (timestamptz)
@@ -119,7 +118,6 @@ Legend:
 - last_name (text)
 - phone (text, nullable)
 - email (text, nullable)
-- photo_url (text, nullable)
 - birth_date (date, nullable)
 - is_active (boolean default true)
 - created_at (timestamptz)

@@ -21,12 +21,12 @@ export async function getTeacherCount() {
  */
 export async function getTeachers(withAssignments = false) {
   const selectFields = withAssignments
-    ? `id, first_name, last_name, email, phone, photo_url, birth_date, social_links, created_at, is_active,
+    ? `id, first_name, last_name, email, phone, birth_date, social_links, created_at, is_active,
        student_teacher_assignments!student_teacher_assignments_teacher_id_fkey(
          id, role, active_to,
          student:students!student_teacher_assignments_student_id_fkey(id, first_name, last_name, is_active)
        )`
-    : 'id, first_name, last_name, email, phone, photo_url, birth_date, social_links, created_at, is_active';
+    : 'id, first_name, last_name, email, phone, birth_date, social_links, created_at, is_active';
 
   let query = supabase
     .from('profiles')

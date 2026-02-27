@@ -89,13 +89,13 @@ Teacher Dashboard:
 
 • Assigned students count  
 • Unread announcements badge  
-• Quick access links  
+• My Lessons Taught  
 
 Admin Dashboard:
 
 • Total students  
 • Total teachers  
-• Unread announcements summary  
+• Total Lessons 
 
 ------------------------------------------------------------
 
@@ -119,19 +119,19 @@ Columns:
 
 Default sorting:
 
-• Alphabetical by last_name  
+• Alphabetical by first_name  
 
 ------------------------------------------------------------
 
 ### 3.4 Student Details (Core Area)
 
 Tabs:
-
-• Overview  
+  
 • Lessons  
 • Songs  
 • Recordings  
-• Notes  
+• Notes
+• Info  
 
 Default sorting (system-wide rule):
 
