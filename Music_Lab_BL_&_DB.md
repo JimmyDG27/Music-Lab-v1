@@ -107,7 +107,7 @@ Legend:
 - last_name (text)
 - phone (text, nullable)
 - email (text, nullable)
-- social_links (text, nullable)
+- instagram (text, nullable)
 - birth_date (date, nullable)
 - created_at (timestamptz)
 

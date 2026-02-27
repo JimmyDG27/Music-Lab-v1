@@ -49,7 +49,7 @@ function prefillForm(profile) {
   document.getElementById('profile-last-name').value   = profile.last_name   ?? '';
   document.getElementById('profile-phone').value       = profile.phone       ?? '';
   document.getElementById('profile-birth-date').value  = profile.birth_date  ?? '';
-  document.getElementById('profile-social-links').value = profile.social_links ?? '';
+  document.getElementById('profile-instagram').value = profile.instagram ?? '';
 }
 
 // ── Profile form ──────────────────────────────────────────────────────────────
@@ -76,7 +76,7 @@ function setupProfileForm() {
         last_name:    fd.get('last_name'),
         phone:        fd.get('phone')        || null,
         birth_date:   fd.get('birth_date')   || null,
-        social_links: fd.get('social_links') || null,
+        instagram: fd.get('instagram') || null,
       });
 
       showToast('Profile saved.', 'success');
@@ -168,7 +168,7 @@ async function init() {
     const { supabase } = await import('../../services/supabase.js');
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, role, first_name, last_name, email, phone, birth_date, social_links')
+      .select('id, role, first_name, last_name, email, phone, birth_date, instagram')
       .eq('id', profile.id)
       .single();
     if (error) throw error;

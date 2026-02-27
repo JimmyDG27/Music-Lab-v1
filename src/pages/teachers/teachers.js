@@ -40,6 +40,17 @@ function initials(first, last) {
   return `${(first?.[0] ?? '').toUpperCase()}${(last?.[0] ?? '').toUpperCase()}`;
 }
 
+// Extract Instagram @handle from a full URL or return the raw value
+function igHandle(url) {
+  if (!url) return '';
+  try {
+    const path = new URL(url).pathname.replace(/^\/|\/$/g, '');
+    return path || url;
+  } catch {
+    return url.replace(/^https?:\/\/[^/]*\/?/, '');
+  }
+}
+
 // Check if a date's month+day matches today
 function isBirthdayToday(dateStr) {
   if (!dateStr) return false;
@@ -143,12 +154,12 @@ function buildCard(teacher) {
                 ? `<a href="tel:${escHtml(teacher.phone)}" class="text-decoration-none">${escHtml(teacher.phone)}</a>`
                 : '<span class="text-muted">—</span>'}
             </div>
-            ${teacher.social_links ? `
+            ${teacher.instagram ? `
             <div>
-              <i class="bi bi-link-45deg me-2 text-muted"></i>
-              <a href="${escHtml(teacher.social_links)}" target="_blank" rel="noopener noreferrer"
-                class="text-decoration-none text-truncate d-inline-block" style="max-width:200px;vertical-align:bottom">
-                ${escHtml(teacher.social_links.replace(/^https?:\/\//, ''))}
+              <i class="bi bi-instagram me-2" style="color:#e1306c"></i>
+              <a href="${escHtml(teacher.instagram)}" target="_blank" rel="noopener noreferrer"
+                class="text-decoration-none">
+                @${escHtml(igHandle(teacher.instagram))}
               </a>
             </div>` : ''}
             <div class="text-muted">
@@ -303,7 +314,7 @@ function setupEditForm() {
         phone:        fd.get('phone')         || null,
         email:        fd.get('email')         || null,
         birth_date:   fd.get('birth_date')    || null,
-        social_links: fd.get('social_links')  || null,
+        instagram: fd.get('instagram') || null,
       });
       bootstrap.Collapse.getInstance(collapseEl)?.hide();
       showToast('Teacher updated.', 'success');
@@ -376,7 +387,7 @@ function wireAdminCardButtons() {
       document.getElementById('edit-phone').value         = teacher.phone        ?? '';
       document.getElementById('edit-email').value         = teacher.email        ?? '';
       document.getElementById('edit-birth-date').value    = teacher.birth_date   ?? '';
-      document.getElementById('edit-social-links').value  = teacher.social_links ?? '';
+      document.getElementById('edit-instagram').value = teacher.instagram ?? '';
 
       const editCollapse = document.getElementById('edit-teacher-collapse');
       let instance = bootstrap.Collapse.getInstance(editCollapse);

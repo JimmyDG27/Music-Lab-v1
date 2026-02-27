@@ -49,7 +49,7 @@ export async function logout() {
 
 /**
  * Update the current user's profile fields in the profiles table.
- * @param {{ first_name?, last_name?, phone?, birth_date?, social_links? }} fields
+ * @param {{ first_name?, last_name?, phone?, birth_date?, instagram? }} fields
  */
 export async function updateProfile(fields) {
   const { data: { user } } = await supabase.auth.getUser();
@@ -58,11 +58,11 @@ export async function updateProfile(fields) {
   const { error } = await supabase
     .from('profiles')
     .update({
-      first_name:   fields.first_name   ?? undefined,
-      last_name:    fields.last_name    ?? undefined,
-      phone:        fields.phone        !== undefined ? (fields.phone || null)        : undefined,
-      birth_date:   fields.birth_date   !== undefined ? (fields.birth_date || null)   : undefined,
-      social_links: fields.social_links !== undefined ? (fields.social_links || null) : undefined,
+      first_name: fields.first_name ?? undefined,
+      last_name:  fields.last_name  ?? undefined,
+      phone:      fields.phone      !== undefined ? (fields.phone || null)      : undefined,
+      birth_date: fields.birth_date !== undefined ? (fields.birth_date || null) : undefined,
+      instagram:  fields.instagram  !== undefined ? (fields.instagram || null)  : undefined,
     })
     .eq('id', user.id);
 

@@ -21,12 +21,12 @@ export async function getTeacherCount() {
  */
 export async function getTeachers(withAssignments = false) {
   const selectFields = withAssignments
-    ? `id, first_name, last_name, email, phone, birth_date, social_links, created_at, is_active,
+    ? `id, first_name, last_name, email, phone, birth_date, instagram, created_at, is_active,
        student_teacher_assignments!student_teacher_assignments_teacher_id_fkey(
          id, role, active_to,
          student:students!student_teacher_assignments_student_id_fkey(id, first_name, last_name, is_active)
        )`
-    : 'id, first_name, last_name, email, phone, birth_date, social_links, created_at, is_active';
+    : 'id, first_name, last_name, email, phone, birth_date, instagram, created_at, is_active';
 
   let query = supabase
     .from('profiles')
@@ -46,7 +46,7 @@ export async function getTeachers(withAssignments = false) {
 /**
  * Update a teacher's profile fields. Admin only (enforced by RLS).
  */
-export async function updateTeacher(id, { first_name, last_name, phone, email, birth_date, social_links }) {
+export async function updateTeacher(id, { first_name, last_name, phone, email, birth_date, instagram }) {
   const { error } = await supabase
     .from('profiles')
     .update({
@@ -55,7 +55,7 @@ export async function updateTeacher(id, { first_name, last_name, phone, email, b
       phone:        phone        || null,
       email:        email        || null,
       birth_date:   birth_date   || null,
-      social_links: social_links || null,
+      instagram: instagram || null,
     })
     .eq('id', id);
 
