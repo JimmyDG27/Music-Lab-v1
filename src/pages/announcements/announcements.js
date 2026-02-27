@@ -18,6 +18,7 @@ let allTeachers      = [];
 let isAdmin          = false;
 let teacherSince     = null; // profile.created_at for teachers, null for admins
 let pendingDeleteId  = null;
+let showExpired      = false;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -39,6 +40,10 @@ function isUnread(ann) {
 
 function commentCount(ann) {
   return (ann.announcement_comments ?? []).filter(c => !c.deleted_at).length;
+}
+
+function isExpired(ann) {
+  return ann.ends_at && new Date(ann.ends_at) < new Date();
 }
 
 // ── Card builder ──────────────────────────────────────────────────────────────
@@ -131,9 +136,11 @@ function renderList(list) {
 
 function applySearch() {
   const q = document.getElementById('search-input').value.trim().toLowerCase();
-  const filtered = q
-    ? allAnnouncements.filter(a => a.title.toLowerCase().includes(q) || a.body.toLowerCase().includes(q))
-    : allAnnouncements;
+  let filtered = showExpired
+    ? allAnnouncements.filter(a => isExpired(a))
+    : allAnnouncements.filter(a => !isExpired(a));
+  if (q) filtered = filtered.filter(a =>
+    a.title.toLowerCase().includes(q) || a.body.toLowerCase().includes(q));
   renderList(filtered);
 }
 
@@ -367,9 +374,12 @@ function setupDeleteModal() {
 
 async function loadAnnouncements() {
   allAnnouncements = await getAnnouncements(teacherSince);
-  const count = allAnnouncements.length;
-  document.getElementById('announcements-subtitle').textContent =
-    `${count} announcement${count !== 1 ? 's' : ''}`;
+  const active  = allAnnouncements.filter(a => !isExpired(a)).length;
+  const expired = allAnnouncements.length - active;
+  const subtitle = (isAdmin && expired > 0)
+    ? `${active} announcement${active !== 1 ? 's' : ''} · ${expired} expired`
+    : `${active} announcement${active !== 1 ? 's' : ''}`;
+  document.getElementById('announcements-subtitle').textContent = subtitle;
   applySearch();
 }
 
@@ -395,6 +405,19 @@ async function init() {
 
     await loadAnnouncements();
     setupSearch();
+
+    // Show expired toggle (all roles)
+    const toggleEl = document.createElement('div');
+    toggleEl.className = 'form-check form-switch ms-auto align-self-center';
+    toggleEl.innerHTML = `
+      <input class="form-check-input" type="checkbox" id="toggle-expired" role="switch">
+      <label class="form-check-label small text-muted" for="toggle-expired">Show expired</label>
+    `;
+    document.getElementById('search-bar').appendChild(toggleEl);
+    document.getElementById('toggle-expired').addEventListener('change', (e) => {
+      showExpired = e.target.checked;
+      applySearch();
+    });
 
     if (isAdmin) {
       setupCreateForm();
