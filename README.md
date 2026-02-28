@@ -80,6 +80,7 @@ DOCS/
 
 ## Documentation
 
+- [Product Requirements Document](Music_Lab_PRD)
 - [Database Schema](DOCS/DATABASE_SCHEMA.md)
 - [RLS Policies](DOCS/RLS.md)
 - [Setup Guide](DOCS/SETUP.md)
