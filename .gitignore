@@ -9,6 +9,9 @@ dist/
 .env.local
 .env.*.local
 
+# Test credentials — share separately, never commit
+DOCS/CREDENTIALS.md
+
 # Vite cache
 .vite/
 
