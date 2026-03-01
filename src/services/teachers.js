@@ -91,3 +91,16 @@ export async function deactivateTeacher(teacherId) {
   if (data?.error) throw new Error(data.error);
   return data;
 }
+
+/**
+ * Activate a teacher: marks profile active, unbans auth user.
+ * Admin only (enforced inside the Edge Function).
+ */
+export async function activateTeacher(teacherId) {
+  const { data, error } = await supabase.functions.invoke('activate-teacher', {
+    body: { teacher_id: teacherId },
+  });
+  if (error) throw new Error(error.message ?? 'Activation failed');
+  if (data?.error) throw new Error(data.error);
+  return data;
+}

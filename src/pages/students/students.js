@@ -125,6 +125,14 @@ function sortStudents(students) {
           .localeCompare(a.first_name + ' ' + a.last_name));
     } else if (currentSort === 'newest') {
       copy.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    } else if (currentSort === 'teacher') {
+      copy.sort((a, b) => {
+        const tA = (a.student_teacher_assignments ?? []).find(x => x.role === 'primary' && !x.active_to);
+        const tB = (b.student_teacher_assignments ?? []).find(x => x.role === 'primary' && !x.active_to);
+        const nameA = tA?.teacher ? `${tA.teacher.first_name} ${tA.teacher.last_name}` : 'zzz';
+        const nameB = tB?.teacher ? `${tB.teacher.first_name} ${tB.teacher.last_name}` : 'zzz';
+        return nameA.localeCompare(nameB);
+      });
     }
     return copy;
   };
@@ -173,6 +181,11 @@ function setupSearch() {
 
 function setupSort() {
   document.getElementById('sort-wrapper').classList.remove('d-none');
+  // "Teacher A→Z" requires assignment data only available to admins
+  if (!isAdmin) {
+    const opt = document.querySelector('#sort-select option[value="teacher"]');
+    if (opt) opt.remove();
+  }
   document.getElementById('sort-select').addEventListener('change', (e) => {
     currentSort = e.target.value;
     applyFilters();

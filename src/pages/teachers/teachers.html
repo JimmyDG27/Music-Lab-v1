@@ -157,6 +157,35 @@
 
     <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
 
+    <!-- Activate Teacher Confirmation Modal -->
+    <div class="modal fade" id="activate-teacher-modal" tabindex="-1" aria-labelledby="activateModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header border-0 pb-0">
+            <h5 class="modal-title fw-semibold" id="activateModalLabel">
+              <i class="bi bi-person-check text-success me-2"></i>Activate Teacher
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p class="mb-2">Are you sure you want to reactivate <strong id="activate-teacher-name"></strong>?</p>
+            <ul class="small text-muted ps-3 mb-0">
+              <li>Their account will be unblocked — they will be able to log in again.</li>
+              <li>Student assignments are <strong>not</strong> restored automatically.</li>
+            </ul>
+            <div id="activate-modal-error" class="alert alert-danger mt-3 mb-0 d-none"></div>
+          </div>
+          <div class="modal-footer border-0 pt-0">
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" id="btn-confirm-activate" class="btn btn-success">
+              <span id="btn-activate-spinner" class="spinner-border spinner-border-sm me-1 d-none" role="status"></span>
+              <i class="bi bi-person-check me-1"></i>Activate
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Deactivate Teacher Confirmation Modal -->
     <div class="modal fade" id="deactivate-teacher-modal" tabindex="-1" aria-labelledby="deactivateModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">

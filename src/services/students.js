@@ -207,6 +207,7 @@ export async function getTeacherProfiles() {
     .from('profiles')
     .select('id, first_name, last_name, email')
     .eq('role', 'teacher')
+    .eq('is_active', true)
     .order('last_name',  { ascending: true })
     .order('first_name', { ascending: true });
 

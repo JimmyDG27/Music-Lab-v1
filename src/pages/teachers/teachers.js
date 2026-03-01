@@ -8,6 +8,7 @@ import {
   updateTeacher,
   inviteTeacher,
   deactivateTeacher,
+  activateTeacher,
 } from '../../services/teachers.js';
 
 // ── Module state ──────────────────────────────────────────────────────────────
@@ -100,6 +101,14 @@ function buildCard(teacher) {
       <i class="bi bi-person-x"></i>
     </button>` : '';
 
+  const activateBtn = (isAdmin && isInactive) ? `
+    <button class="btn btn-sm btn-light btn-activate-teacher text-success"
+      data-id="${escHtml(teacher.id)}"
+      data-name="${escHtml(teacher.first_name + ' ' + teacher.last_name)}"
+      title="Activate">
+      <i class="bi bi-person-check"></i>
+    </button>` : '';
+
   const inactiveBadge = isInactive
     ? `<span class="badge rounded-pill fw-normal ms-1"
            style="font-size:.68rem;background:#f8d7da;color:#842029;border:1px solid #f5c2c7">
@@ -136,6 +145,7 @@ function buildCard(teacher) {
             <div class="d-flex gap-1">
               ${editBtn}
               ${deactivateBtn}
+              ${activateBtn}
             </div>
           </div>
 
@@ -219,7 +229,9 @@ function sortTeachers(list) {
 
 function applyFilters() {
   const q = document.getElementById('search-input').value.trim().toLowerCase();
-  let filtered = showInactive ? allTeachers : allTeachers.filter(t => t.is_active !== false);
+  let filtered = showInactive
+    ? allTeachers.filter(t => t.is_active === false)
+    : allTeachers.filter(t => t.is_active !== false);
   if (q) filtered = filtered.filter(t =>
     (t.first_name + ' ' + t.last_name).toLowerCase().includes(q));
   renderGrid(sortTeachers(filtered));
@@ -329,6 +341,44 @@ function setupEditForm() {
   });
 }
 
+// ── Activate Modal ───────────────────────────────────────────────────────────
+
+function setupActivateModal() {
+  const modal      = new bootstrap.Modal(document.getElementById('activate-teacher-modal'));
+  const errEl      = document.getElementById('activate-modal-error');
+  const spinner    = document.getElementById('btn-activate-spinner');
+  const confirmBtn = document.getElementById('btn-confirm-activate');
+  let pendingId    = null;
+
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.btn-activate-teacher');
+    if (!btn) return;
+    pendingId = btn.dataset.id;
+    document.getElementById('activate-teacher-name').textContent = btn.dataset.name;
+    errEl.classList.add('d-none');
+    modal.show();
+  });
+
+  confirmBtn.addEventListener('click', async () => {
+    if (!pendingId) return;
+    spinner.classList.remove('d-none');
+    confirmBtn.disabled = true;
+    errEl.classList.add('d-none');
+    try {
+      await activateTeacher(pendingId);
+      modal.hide();
+      showToast('Teacher activated. They can now log in again.', 'success');
+      await loadTeachers();
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.classList.remove('d-none');
+    } finally {
+      spinner.classList.add('d-none');
+      confirmBtn.disabled = false;
+    }
+  });
+}
+
 // ── Deactivate Modal ─────────────────────────────────────────────────────────
 
 function setupDeactivateModal() {
@@ -424,6 +474,12 @@ async function init() {
   isAdmin       = profile.role === 'admin';
   currentUserId = profile.id;
 
+  // "Most Students" sort requires assignment data — admin only
+  if (!isAdmin) {
+    const opt = document.querySelector('#sort-select option[value="students"]');
+    if (opt) opt.remove();
+  }
+
   document.getElementById('page-loading').classList.add('d-none');
   document.getElementById('teachers-content').classList.remove('d-none');
 
@@ -433,6 +489,7 @@ async function init() {
     if (isAdmin) {
       setupInviteForm();
       setupEditForm();
+      setupActivateModal();
       setupDeactivateModal();
       // Show inactive toggle
       const toggleEl = document.createElement('div');

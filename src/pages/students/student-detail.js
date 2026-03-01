@@ -657,26 +657,28 @@ function renderLessons(lessons, isAdmin) {
           <div id="lesson-edit-${l.id}" class="d-none" style="background:#f8f9fa;border-top:1px solid #e9ecef">
             <div class="px-4 py-3">
               <form class="inline-edit-lesson-form" data-lesson-id="${l.id}" novalidate>
-                <div class="row g-3">
+                <div class="row g-3 mb-3">
                   <div class="col-12 col-sm-5">
                     <label class="form-label fw-semibold" style="font-size:.8rem">Date &amp; Time <span class="text-danger">*</span></label>
                     <input type="datetime-local" name="held_at" class="form-control form-control-sm"
                       value="${toDateTimeLocal(l.held_at)}" required />
                     <div class="invalid-feedback">Required.</div>
                   </div>
-                  <div class="col-12">
-                    <label class="form-label fw-semibold" style="font-size:.8rem">Vocal Technique</label>
-                    <textarea name="vocal_technique" class="form-control form-control-sm" rows="2"
+                </div>
+                <div class="row g-3">
+                  <div class="col-12 col-lg-4">
+                    <label class="form-label fw-semibold" style="font-size:.8rem"><i class="bi bi-lungs me-1 text-muted"></i>Vocal Technique</label>
+                    <textarea name="vocal_technique" class="form-control form-control-sm" rows="4"
                       placeholder="What was practised…">${escHtml(l.vocal_technique || '')}</textarea>
                   </div>
-                  <div class="col-12">
-                    <label class="form-label fw-semibold" style="font-size:.8rem">Song Notes</label>
-                    <textarea name="song_notes" class="form-control form-control-sm" rows="2"
+                  <div class="col-12 col-lg-4">
+                    <label class="form-label fw-semibold" style="font-size:.8rem"><i class="bi bi-music-note-beamed me-1 text-muted"></i>Song Notes</label>
+                    <textarea name="song_notes" class="form-control form-control-sm" rows="4"
                       placeholder="Songs worked on…">${escHtml(l.song_notes || '')}</textarea>
                   </div>
-                  <div class="col-12">
-                    <label class="form-label fw-semibold" style="font-size:.8rem">Homework</label>
-                    <textarea name="homework" class="form-control form-control-sm" rows="2"
+                  <div class="col-12 col-lg-4">
+                    <label class="form-label fw-semibold" style="font-size:.8rem"><i class="bi bi-pencil-square me-1 text-muted"></i>Homework</label>
+                    <textarea name="homework" class="form-control form-control-sm" rows="4"
                       placeholder="Tasks for next lesson…">${escHtml(l.homework || '')}</textarea>
                   </div>
                 </div>
@@ -727,23 +729,25 @@ function renderLessons(lessons, isAdmin) {
         <div class="card-body">
           <h6 class="fw-semibold mb-3">New Lesson</h6>
           <form id="add-lesson-form" novalidate>
-            <div class="row g-3">
+            <div class="row g-3 mb-3">
               <div class="col-12 col-sm-5">
                 <label class="form-label fw-semibold" style="font-size:.8rem">Date &amp; Time <span class="text-danger">*</span></label>
                 <input type="datetime-local" name="held_at" class="form-control form-control-sm" required />
                 <div class="invalid-feedback">Required.</div>
               </div>
-              <div class="col-12">
-                <label class="form-label fw-semibold" style="font-size:.8rem">Vocal Technique</label>
-                <textarea name="vocal_technique" class="form-control form-control-sm" rows="2" placeholder="What was practised…"></textarea>
+            </div>
+            <div class="row g-3">
+              <div class="col-12 col-lg-4">
+                <label class="form-label fw-semibold" style="font-size:.8rem"><i class="bi bi-lungs me-1 text-muted"></i>Vocal Technique</label>
+                <textarea name="vocal_technique" class="form-control form-control-sm" rows="4" placeholder="What was practised…"></textarea>
               </div>
-              <div class="col-12">
-                <label class="form-label fw-semibold" style="font-size:.8rem">Song Notes</label>
-                <textarea name="song_notes" class="form-control form-control-sm" rows="2" placeholder="Songs worked on…"></textarea>
+              <div class="col-12 col-lg-4">
+                <label class="form-label fw-semibold" style="font-size:.8rem"><i class="bi bi-music-note-beamed me-1 text-muted"></i>Song Notes</label>
+                <textarea name="song_notes" class="form-control form-control-sm" rows="4" placeholder="Songs worked on…"></textarea>
               </div>
-              <div class="col-12">
-                <label class="form-label fw-semibold" style="font-size:.8rem">Homework</label>
-                <textarea name="homework" class="form-control form-control-sm" rows="2" placeholder="Tasks for next lesson…"></textarea>
+              <div class="col-12 col-lg-4">
+                <label class="form-label fw-semibold" style="font-size:.8rem"><i class="bi bi-pencil-square me-1 text-muted"></i>Homework</label>
+                <textarea name="homework" class="form-control form-control-sm" rows="4" placeholder="Tasks for next lesson…"></textarea>
               </div>
             </div>
             <div id="add-lesson-form-error" class="alert alert-danger mt-3 d-none"></div>
@@ -1758,6 +1762,14 @@ async function init() {
     const canDeleteRecordings = isAdmin || isPrimary;
     const recordings = await getRecordings(studentId);
     renderRecordings(recordings, canDeleteRecordings);
+
+    // ── Tab persistence — save on switch (restore is done by inline script in HTML) ──
+    const TAB_KEY = `student-tab:${studentId}`;
+    document.querySelectorAll('[data-bs-toggle="tab"]').forEach(btn => {
+      btn.addEventListener('shown.bs.tab', () => {
+        sessionStorage.setItem(TAB_KEY, btn.dataset.bsTarget);
+      });
+    });
 
   } catch (err) {
     document.getElementById('page-loading').classList.add('d-none');
