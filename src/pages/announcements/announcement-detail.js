@@ -237,9 +237,13 @@ function buildCommentHtml(comment) {
           </div>
         </div>
         ${canEdit ? `
-        <div class="d-flex gap-2 mt-1">
-          <button class="btn btn-link btn-sm p-0 text-muted btn-comment-edit" style="font-size:.75rem">Edit</button>
-          <button class="btn btn-link btn-sm p-0 text-danger btn-comment-delete" style="font-size:.75rem">Delete</button>
+        <div class="d-flex gap-1 mt-1">
+          <button class="btn btn-sm btn-comment-edit" style="color:var(--text-400,#9ca3af);padding:.15rem .35rem;font-size:.8rem;line-height:1;border:none;background:none" aria-label="Edit comment" title="Edit">
+            <i class="bi bi-pencil-fill" aria-hidden="true"></i>
+          </button>
+          <button class="btn btn-sm btn-comment-delete" style="color:#dc3545;padding:.15rem .35rem;font-size:.8rem;line-height:1;border:none;background:none" aria-label="Delete comment" title="Delete">
+            <i class="bi bi-trash-fill" aria-hidden="true"></i>
+          </button>
         </div>` : ''}
       </div>
     </div>`;

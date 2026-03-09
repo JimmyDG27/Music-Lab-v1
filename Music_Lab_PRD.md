@@ -9,7 +9,6 @@ Architecture: MPA (HTML/CSS/Vanilla JS) + Supabase (DB/Auth/Storage/RLS)
 # PART 1 — PRODUCT VISION, FUNCTIONAL SCOPE, USER EXPERIENCE
 
 ==================================================================
-
 ## 1. PRODUCT VISION
 
 ### 1.1 Core Objective

@@ -4,6 +4,9 @@ node_modules/
 # Build output
 dist/
 
+# MCP config — contains auth tokens
+.mcp.json
+
 # Environment secrets — NEVER commit .env
 .env
 .env.local

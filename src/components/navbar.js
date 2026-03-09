@@ -1,6 +1,5 @@
 // components/navbar.js
 // Renders the shared sidebar into a container element.
-// Same public API — renderNavbar(containerId, profile?) — so all pages work unchanged.
 import { getCurrentUser } from '../services/auth.js';
 import { logout }         from '../services/auth.js';
 import { showToast }      from './toast.js';
@@ -8,17 +7,17 @@ import { showToast }      from './toast.js';
 // ── Route definitions ─────────────────────────────────────────────────────────
 
 const ADMIN_LINKS = [
-  { href: '/src/pages/dashboard/dashboard.html',         icon: 'bi-grid',          label: 'Dashboard'     },
-  { href: '/src/pages/students/students.html',           icon: 'bi-people',        label: 'Students'      },
+  { href: '/src/pages/dashboard/dashboard.html',         icon: 'bi-grid-fill',     label: 'Dashboard'     },
+  { href: '/src/pages/students/students.html',           icon: 'bi-people-fill',   label: 'Students'      },
   { href: '/src/pages/teachers/teachers.html',           icon: 'bi-person-badge',  label: 'Teachers'      },
-  { href: '/src/pages/announcements/announcements.html', icon: 'bi-megaphone',     label: 'Announcements' },
+  { href: '/src/pages/announcements/announcements.html', icon: 'bi-megaphone-fill',label: 'Announcements' },
 ];
 
 const TEACHER_LINKS = [
-  { href: '/src/pages/dashboard/dashboard.html',         icon: 'bi-grid',          label: 'Dashboard'     },
-  { href: '/src/pages/students/students.html',           icon: 'bi-people',        label: 'My Students'   },
+  { href: '/src/pages/dashboard/dashboard.html',         icon: 'bi-grid-fill',     label: 'Dashboard'     },
+  { href: '/src/pages/students/students.html',           icon: 'bi-people-fill',   label: 'My Students'   },
   { href: '/src/pages/teachers/teachers.html',           icon: 'bi-person-badge',  label: 'Teachers'      },
-  { href: '/src/pages/announcements/announcements.html', icon: 'bi-megaphone',     label: 'Announcements' },
+  { href: '/src/pages/announcements/announcements.html', icon: 'bi-megaphone-fill',label: 'Announcements' },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -33,9 +32,6 @@ function isActive(href) {
   return window.location.pathname.endsWith(href);
 }
 
-/**
- * Generate the first letter(s) of the user's name for the avatar circle.
- */
 function initials(profile) {
   const f = (profile.first_name ?? '').trim();
   const l = (profile.last_name  ?? '').trim();
@@ -53,7 +49,7 @@ function buildNavItems(links) {
           href="${href}"
           class="ml-nav-link${active ? ' active' : ''}"${active ? ' aria-current="page"' : ''}
         >
-          <i class="bi ${icon} ml-nav-icon"></i>
+          <i class="bi ${icon} ml-nav-icon" aria-hidden="true"></i>
           <span>${escHtml(label)}</span>
         </a>
       </li>`;
@@ -61,9 +57,9 @@ function buildNavItems(links) {
 }
 
 function buildSidebarHTML(profile) {
-  const links    = profile.role === 'admin' ? ADMIN_LINKS : TEACHER_LINKS;
-  const navItems = buildNavItems(links);
-  const fullName = escHtml(
+  const links       = profile.role === 'admin' ? ADMIN_LINKS : TEACHER_LINKS;
+  const navItems    = buildNavItems(links);
+  const fullName    = escHtml(
     [profile.first_name, profile.last_name].filter(Boolean).join(' ') || profile.email
   );
   const roleLabel   = profile.role === 'admin' ? 'Admin' : 'Teacher';
@@ -73,41 +69,41 @@ function buildSidebarHTML(profile) {
   return `
     <!-- ── MOBILE TOPBAR ── -->
     <header class="ml-topbar d-flex d-lg-none align-items-center justify-content-between px-4">
-      <span class="ml-brand-text">
-        <i class="bi bi-music-note-beamed"></i> Music Lab
+      <span class="ml-brand-text" style="font-size:.95rem;font-weight:700;letter-spacing:-.02em">
+        <i class="bi bi-music-note-beamed me-1" style="color:#a5b4fc" aria-hidden="true"></i>Music Lab
       </span>
       <button
         class="btn p-1 border-0"
         type="button"
         aria-label="Open menu"
+        style="line-height:1"
       >
-        <i class="bi bi-list fs-4 text-secondary"></i>
+        <i class="bi bi-list fs-4" style="color:rgba(255,255,255,.75)" aria-hidden="true"></i>
       </button>
     </header>
 
-    <!-- ── SIDEBAR (desktop: aside | mobile: offcanvas) ── -->
+    <!-- ── SIDEBAR ── -->
     <aside
       id="mlSidebar"
       class="ml-sidebar offcanvas-lg offcanvas-start"
       tabindex="-1"
-      aria-label="Sidebar"
+      aria-label="Main navigation"
     >
       <!-- Brand -->
       <div class="ml-brand px-4 py-4 d-flex align-items-center gap-2">
-        <div class="ml-brand-icon">
+        <div class="ml-brand-icon" aria-hidden="true">
           <i class="bi bi-music-note-beamed"></i>
         </div>
         <span class="ml-brand-text">Music Lab</span>
-        <!-- Mobile close -->
         <button
           type="button"
-          class="btn-close ms-auto d-lg-none"
+          class="btn-close btn-close-white ms-auto d-lg-none"
           aria-label="Close"
         ></button>
       </div>
 
       <!-- Navigation -->
-      <nav class="ml-nav flex-grow-1 px-3 mt-2">
+      <nav class="ml-nav flex-grow-1 px-3 mt-1" aria-label="Site navigation">
         <ul class="ml-nav-list list-unstyled mb-0">
           ${navItems}
         </ul>
@@ -117,7 +113,8 @@ function buildSidebarHTML(profile) {
       <div class="ml-sidebar-footer px-4 py-4">
         <a href="/src/pages/profile/profile.html"
            class="d-flex align-items-center gap-3 mb-3 text-decoration-none"
-           style="color:inherit">
+           style="color:inherit"
+           aria-label="Go to your profile">
           <div class="ml-avatar" aria-hidden="true">${avatarChars}</div>
           <div class="overflow-hidden">
             <div class="ml-user-name text-truncate" title="${fullName}">${fullName}</div>
@@ -129,7 +126,7 @@ function buildSidebarHTML(profile) {
           type="button"
           class="btn ml-logout-btn w-100"
         >
-          <i class="bi bi-box-arrow-right me-2"></i>Sign out
+          <i class="bi bi-box-arrow-right me-2" aria-hidden="true"></i>Sign out
         </button>
       </div>
     </aside>`;
@@ -137,13 +134,6 @@ function buildSidebarHTML(profile) {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-/**
- * Render the sidebar into the element matching `containerId`.
- * Fetches the current user profile automatically.
- *
- * @param {string} containerId  - id of the target element (no #)
- * @param {object} [profile]    - optional pre-fetched profile (avoids extra call)
- */
 export async function renderNavbar(containerId, profile = null) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -156,18 +146,13 @@ export async function renderNavbar(containerId, profile = null) {
 
   container.innerHTML = buildSidebarHTML(profile);
 
-  // Bootstrap's data-bs-toggle event delegation doesn't reliably fire for
-  // elements injected after page load. Wire the hamburger and close button
-  // manually instead.
   const offcanvasEl = document.getElementById('mlSidebar');
   if (offcanvasEl && window.bootstrap?.Offcanvas) {
     const oc = new window.bootstrap.Offcanvas(offcanvasEl);
 
-    // Hamburger (inside the topbar) → show
     const hamburger = container.querySelector('[aria-label="Open menu"]');
     hamburger?.addEventListener('click', () => oc.show());
 
-    // ✕ button (inside the sidebar) → hide
     const closeBtn = offcanvasEl.querySelector('[aria-label="Close"]');
     closeBtn?.addEventListener('click', () => oc.hide());
   }

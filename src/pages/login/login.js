@@ -10,13 +10,13 @@ const DASHBOARD_URL = '/src/pages/dashboard/dashboard.html';
 
 function showInlineError(message) {
   const el = document.getElementById('login-error');
-  el.textContent = message;
+  el.innerHTML = `<i class="bi bi-exclamation-circle" aria-hidden="true"></i><span>${message}</span>`;
   el.classList.remove('d-none');
 }
 
 function clearInlineError() {
   const el = document.getElementById('login-error');
-  el.textContent = '';
+  el.innerHTML = '';
   el.classList.add('d-none');
 }
 
