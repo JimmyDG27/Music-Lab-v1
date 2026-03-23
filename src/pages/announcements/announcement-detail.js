@@ -1,7 +1,8 @@
 // pages/announcements/announcement-detail.js
-import { authGuard }    from '../../utils/guards.js';
-import { renderNavbar } from '../../components/navbar.js';
-import { showToast }    from '../../components/toast.js';
+import { authGuard }     from '../../utils/guards.js';
+import { renderNavbar }  from '../../components/navbar.js';
+import { showToast }     from '../../components/toast.js';
+import { confirmDelete } from '../../components/modal.js';
 import { formatDate, formatDateTime, toDateTimeLocal } from '../../utils/formatters.js';
 import {
   getAnnouncementById,
@@ -167,20 +168,17 @@ function setupAdminEdit(ann) {
 }
 
 function setupAdminDelete() {
-  const spinner = document.getElementById('btn-delete-spinner');
-  const btn     = document.getElementById('btn-confirm-delete');
-
-  btn.addEventListener('click', async () => {
-    spinner.classList.remove('d-none');
-    btn.disabled = true;
-
+  document.getElementById('btn-delete-ann')?.addEventListener('click', async () => {
+    const confirmed = await confirmDelete({
+      title:   'Delete Announcement',
+      message: 'This announcement will be permanently deleted.',
+    });
+    if (!confirmed) return;
     try {
       await deleteAnnouncement(announcementId);
       window.location.href = '/src/pages/announcements/announcements.html';
     } catch (err) {
       showToast('Delete failed: ' + err.message, 'danger');
-      spinner.classList.add('d-none');
-      btn.disabled = false;
     }
   });
 }
@@ -299,7 +297,11 @@ async function renderComments() {
 
     // Delete comment
     item.querySelector('.btn-comment-delete')?.addEventListener('click', async () => {
-      if (!confirm('Delete this comment?')) return;
+      const confirmed = await confirmDelete({
+        title:   'Delete Comment',
+        message: 'This comment will be permanently removed.',
+      });
+      if (!confirmed) return;
       try {
         await deleteComment(id);
         showToast('Comment deleted.', 'success');

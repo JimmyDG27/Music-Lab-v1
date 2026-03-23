@@ -3,6 +3,7 @@
 import { getCurrentUser } from '../services/auth.js';
 import { logout }         from '../services/auth.js';
 import { showToast }      from './toast.js';
+import { initCalendarDrawer, openDrawer } from './calendarDrawer.js';
 
 // ── Route definitions ─────────────────────────────────────────────────────────
 
@@ -11,6 +12,7 @@ const ADMIN_LINKS = [
   { href: '/src/pages/students/students.html',           icon: 'bi-people-fill',   label: 'Students'      },
   { href: '/src/pages/teachers/teachers.html',           icon: 'bi-person-badge',  label: 'Teachers'      },
   { href: '/src/pages/announcements/announcements.html', icon: 'bi-megaphone-fill',label: 'Announcements' },
+  { href: null, action: 'calendar',                      icon: 'bi-calendar3',     label: 'Calendar'      },
 ];
 
 const TEACHER_LINKS = [
@@ -18,6 +20,7 @@ const TEACHER_LINKS = [
   { href: '/src/pages/students/students.html',           icon: 'bi-people-fill',   label: 'My Students'   },
   { href: '/src/pages/teachers/teachers.html',           icon: 'bi-person-badge',  label: 'Teachers'      },
   { href: '/src/pages/announcements/announcements.html', icon: 'bi-megaphone-fill',label: 'Announcements' },
+  { href: null, action: 'calendar',                      icon: 'bi-calendar3',     label: 'Calendar'      },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -41,7 +44,20 @@ function initials(profile) {
 }
 
 function buildNavItems(links) {
-  return links.map(({ href, icon, label }) => {
+  return links.map(({ href, icon, label, action }) => {
+    if (action) {
+      return `
+        <li class="ml-nav-item">
+          <button
+            type="button"
+            class="ml-nav-link w-100 border-0 bg-transparent text-start"
+            data-action="${escHtml(action)}"
+          >
+            <i class="bi ${icon} ml-nav-icon" aria-hidden="true"></i>
+            <span>${escHtml(label)}</span>
+          </button>
+        </li>`;
+    }
     const active = isActive(href);
     return `
       <li class="ml-nav-item">
@@ -164,5 +180,11 @@ export async function renderNavbar(containerId, profile = null) {
     } catch (err) {
       showToast('Logout failed: ' + err.message, 'danger');
     }
+  });
+
+  // Calendar drawer — all roles
+  initCalendarDrawer(profile.id);
+  container.querySelector('[data-action="calendar"]')?.addEventListener('click', () => {
+    openDrawer();
   });
 }

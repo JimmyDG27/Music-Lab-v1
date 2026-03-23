@@ -183,12 +183,16 @@ function setupSort() {
   document.getElementById('sort-wrapper').classList.remove('d-none');
   // "Teacher A→Z" requires assignment data only available to admins
   if (!isAdmin) {
-    const opt = document.querySelector('#sort-select option[value="teacher"]');
-    if (opt) opt.remove();
+    document.getElementById('sort-by-teacher-li')?.remove();
   }
-  document.getElementById('sort-select').addEventListener('change', (e) => {
-    currentSort = e.target.value;
-    applyFilters();
+  document.querySelectorAll('#sort-wrapper [data-sort]').forEach(item => {
+    item.addEventListener('click', () => {
+      currentSort = item.dataset.sort;
+      document.getElementById('sort-label').textContent = item.textContent;
+      document.querySelectorAll('#sort-wrapper [data-sort]').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+      applyFilters();
+    });
   });
 }
 

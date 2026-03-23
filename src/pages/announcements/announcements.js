@@ -1,7 +1,8 @@
 // pages/announcements/announcements.js
-import { authGuard }    from '../../utils/guards.js';
-import { renderNavbar } from '../../components/navbar.js';
-import { showToast }    from '../../components/toast.js';
+import { authGuard }      from '../../utils/guards.js';
+import { renderNavbar }   from '../../components/navbar.js';
+import { showToast }      from '../../components/toast.js';
+import { confirmDelete }  from '../../components/modal.js';
 import { formatDate, formatDateTime, toDateTimeLocal } from '../../utils/formatters.js';
 import {
   getAnnouncements,
@@ -17,7 +18,6 @@ let allAnnouncements = [];
 let allTeachers      = [];
 let isAdmin          = false;
 let teacherSince     = null; // profile.created_at for teachers, null for admins
-let pendingDeleteId  = null;
 let showExpired      = false;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -332,41 +332,20 @@ function wireAdminButtons() {
 
   // Delete
   document.querySelectorAll('.btn-delete-ann').forEach(btn => {
-    btn.addEventListener('click', () => {
-      pendingDeleteId = btn.dataset.id;
-      document.getElementById('delete-announcement-name').textContent = `"${btn.dataset.title}"`;
-      bootstrap.Modal.getOrCreateInstance(
-        document.getElementById('delete-announcement-modal')
-      ).show();
+    btn.addEventListener('click', async () => {
+      const confirmed = await confirmDelete({
+        title:   'Delete Announcement',
+        message: `"${btn.dataset.title}" will be permanently deleted.`,
+      });
+      if (!confirmed) return;
+      try {
+        await deleteAnnouncement(btn.dataset.id);
+        showToast('Announcement deleted.', 'success');
+        await loadAnnouncements();
+      } catch (err) {
+        showToast('Delete failed: ' + err.message, 'danger');
+      }
     });
-  });
-}
-
-// ── Delete modal ──────────────────────────────────────────────────────────────
-
-function setupDeleteModal() {
-  const spinner = document.getElementById('btn-delete-spinner');
-  const btn     = document.getElementById('btn-confirm-delete-announcement');
-
-  btn.addEventListener('click', async () => {
-    if (!pendingDeleteId) return;
-    spinner.classList.remove('d-none');
-    btn.disabled = true;
-
-    try {
-      await deleteAnnouncement(pendingDeleteId);
-      bootstrap.Modal.getInstance(
-        document.getElementById('delete-announcement-modal')
-      )?.hide();
-      showToast('Announcement deleted.', 'success');
-      pendingDeleteId = null;
-      await loadAnnouncements();
-    } catch (err) {
-      showToast('Delete failed: ' + err.message, 'danger');
-    } finally {
-      spinner.classList.add('d-none');
-      btn.disabled = false;
-    }
   });
 }
 
@@ -422,7 +401,6 @@ async function init() {
     if (isAdmin) {
       setupCreateForm();
       setupEditForm();
-      setupDeleteModal();
     }
   } catch (err) {
     showToast('Failed to load announcements: ' + err.message, 'danger');

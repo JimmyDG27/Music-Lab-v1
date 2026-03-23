@@ -7,11 +7,12 @@ export default defineConfig({
       // Covers all external resources the app loads.
       'Content-Security-Policy': [
         "default-src 'self'",
-        "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net",
+        "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net https://accounts.google.com https://apis.google.com",
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
-        "font-src 'self' https://fonts.gstatic.com",
-        "img-src 'self' data:",
-        "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+        "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net",
+        "img-src 'self' data: https://*.google.com https://*.googleapis.com https://*.gstatic.com",
+        "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://accounts.google.com https://www.googleapis.com https://oauth2.googleapis.com https://cdn.jsdelivr.net",
+        "frame-src https://calendar.google.com https://accounts.google.com",
       ].join('; '),
     },
   },

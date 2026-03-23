@@ -239,9 +239,14 @@ function applyFilters() {
 
 function setupSearch() {
   document.getElementById('search-input').addEventListener('input', applyFilters);
-  document.getElementById('sort-select').addEventListener('change', (e) => {
-    currentSort = e.target.value;
-    applyFilters();
+  document.querySelectorAll('[data-sort]').forEach(item => {
+    item.addEventListener('click', () => {
+      currentSort = item.dataset.sort;
+      document.getElementById('sort-label').textContent = item.textContent;
+      document.querySelectorAll('[data-sort]').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+      applyFilters();
+    });
   });
 }
 

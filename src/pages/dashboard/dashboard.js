@@ -79,8 +79,6 @@ function renderLessonActivity(rows) {
       </div>`;
   }
 
-  const maxThis = Math.max(...rows.map(r => r.thisMonth), 1);
-
   const monthName = (offset = 0) => {
     const d = new Date();
     d.setMonth(d.getMonth() + offset);
@@ -90,7 +88,6 @@ function renderLessonActivity(rows) {
   const lastMonthLabel = monthName(-1);
 
   const tableRows = rows.map((r, i) => {
-    const barPct  = Math.round((r.thisMonth / maxThis) * 100);
     const rankBg  = i === 0 ? 'rgba(79,70,229,.1)' : i === 1 ? 'rgba(79,70,229,.06)' : i === 2 ? 'rgba(79,70,229,.04)' : 'transparent';
     const rankNum = i < 3
       ? `<span class="ml-la-rank ml-la-rank-top">${i + 1}</span>`
@@ -106,12 +103,7 @@ function renderLessonActivity(rows) {
           </div>
         </td>
         <td>
-          <div class="d-flex align-items-center gap-2">
-            <div class="ml-la-bar-wrap">
-              <div class="ml-la-bar" style="width:${barPct}%"></div>
-            </div>
-            <span class="ml-la-count-main">${escHtml(String(r.thisMonth))}</span>
-          </div>
+          <span class="ml-la-count-main">${escHtml(String(r.thisMonth))}</span>
         </td>
         <td>
           <span class="ml-la-count-sec">${escHtml(String(r.lastMonth))}</span>
@@ -223,7 +215,7 @@ function monthLabel(ym) {
   return d.toLocaleString('default', { month: 'short' }) + " '" + String(y).slice(2);
 }
 
-function renderMonthlyModalContent({ months, rows }) {
+function renderMonthlyModalContent({ months, rows }, rowLabel = 'Teacher') {
   if (!rows.length) {
     return `<div class="ml-empty-state">
       <div class="ml-empty-icon"><i class="bi bi-journal-x"></i></div>
@@ -231,15 +223,18 @@ function renderMonthlyModalContent({ months, rows }) {
     </div>`;
   }
 
+  // Only show months that have at least one lesson across all rows
+  const activeMonths = months.filter(ym => rows.some(r => (r.months[ym] ?? 0) > 0));
+
   const allCounts = rows.flatMap(r => Object.values(r.months));
   const maxCount  = Math.max(...allCounts, 1);
 
-  const headCols = months.map(ym =>
+  const headCols = activeMonths.map(ym =>
     `<th class="ml-hm-th">${escHtml(monthLabel(ym))}</th>`
   ).join('');
 
   const bodyRows = rows.map(r => {
-    const cells = months.map(ym => {
+    const cells = activeMonths.map(ym => {
       const count   = r.months[ym] ?? 0;
       const opacity = count === 0 ? 0 : 0.12 + (count / maxCount) * 0.78;
       const bg      = count === 0 ? '' : `rgba(79,70,229,${opacity.toFixed(2)})`;
@@ -263,7 +258,7 @@ function renderMonthlyModalContent({ months, rows }) {
       <table class="table mb-0 ml-hm-table">
         <thead>
           <tr>
-            <th class="ml-hm-teacher-th">Teacher</th>
+            <th class="ml-hm-teacher-th">${escHtml(rowLabel)}</th>
             ${headCols}
             <th class="ml-hm-total-th">Total</th>
           </tr>
@@ -348,12 +343,12 @@ async function init() {
 
   if (profile.role === 'admin' && stats.lessonsMonthly) {
     const modalBody = document.getElementById('lessons-modal-body');
-    if (modalBody) modalBody.innerHTML = renderMonthlyModalContent(stats.lessonsMonthly);
+    if (modalBody) modalBody.innerHTML = renderMonthlyModalContent(stats.lessonsMonthly, 'Teacher');
   }
 
   if (profile.role !== 'admin' && stats.studentLessonsMonthly) {
     const modalBody = document.getElementById('student-lessons-modal-body');
-    if (modalBody) modalBody.innerHTML = renderMonthlyModalContent(stats.studentLessonsMonthly);
+    if (modalBody) modalBody.innerHTML = renderMonthlyModalContent(stats.studentLessonsMonthly, 'Student');
   }
 }
 

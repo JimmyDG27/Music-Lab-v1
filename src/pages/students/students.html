@@ -141,12 +141,19 @@
                 placeholder="Search by name…" aria-label="Search students" />
             </div>
             <div id="sort-wrapper" class="d-none">
-              <select id="sort-select" class="form-select ml-select-sm" aria-label="Sort students">
-                <option value="az">A → Z</option>
-                <option value="za">Z → A</option>
-                <option value="newest">Latest Added</option>
-                <option value="teacher">Teacher (A → Z)</option>
-              </select>
+              <div class="dropdown">
+                <button class="ml-sort-btn dropdown-toggle" type="button"
+                        id="sort-dropdown-btn" data-bs-toggle="dropdown" aria-expanded="false">
+                  <i class="bi bi-sort-alpha-down" aria-hidden="true"></i>
+                  <span id="sort-label">A → Z</span>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end ml-sort-menu" aria-labelledby="sort-dropdown-btn">
+                  <li><button class="dropdown-item active" data-sort="az">A → Z</button></li>
+                  <li><button class="dropdown-item" data-sort="za">Z → A</button></li>
+                  <li><button class="dropdown-item" data-sort="newest">Latest Added</button></li>
+                  <li id="sort-by-teacher-li"><button class="dropdown-item" data-sort="teacher">Teacher (A → Z)</button></li>
+                </ul>
+              </div>
             </div>
           </div>
 

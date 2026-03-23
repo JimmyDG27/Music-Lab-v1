@@ -1,7 +1,8 @@
 // pages/students/student-detail.js
-import { authGuard }    from '../../utils/guards.js';
-import { renderNavbar } from '../../components/navbar.js';
-import { showToast }    from '../../components/toast.js';
+import { authGuard }     from '../../utils/guards.js';
+import { renderNavbar }  from '../../components/navbar.js';
+import { showToast }     from '../../components/toast.js';
+import { confirmDelete } from '../../components/modal.js';
 import { formatDate, formatDateTime, toDateTimeLocal, formatBytes } from '../../utils/formatters.js';
 import {
   getStudentById,
@@ -481,27 +482,20 @@ function wireParentAdminButtons() {
 
   // ── Delete buttons — one per card ──
   document.querySelectorAll('.btn-delete-parent').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const { id, name } = btn.dataset;
-      document.getElementById('delete-parent-name').textContent = name;
-
-      const confirmBtn = document.getElementById('btn-confirm-delete-parent');
-      const fresh = confirmBtn.cloneNode(true);
-      confirmBtn.replaceWith(fresh);
-      fresh.addEventListener('click', async () => {
-        try {
-          await deleteParent(id);
-          bootstrap.Modal.getInstance(
-            document.getElementById('deleteParentModal')
-          )?.hide();
-          showToast(`${name} removed.`, 'warning');
-          await reloadOverview();
-        } catch (err) {
-          showToast('Failed to delete: ' + err.message, 'danger');
-        }
+      const confirmed = await confirmDelete({
+        title:   'Remove Parent Contact',
+        message: `"${name}" will be permanently deleted.`,
       });
-
-      new bootstrap.Modal(document.getElementById('deleteParentModal')).show();
+      if (!confirmed) return;
+      try {
+        await deleteParent(id);
+        showToast(`${name} removed.`, 'warning');
+        await reloadOverview();
+      } catch (err) {
+        showToast('Failed to delete: ' + err.message, 'danger');
+      }
     });
   });
 }
@@ -898,27 +892,20 @@ function wireLessonButtons(isAdmin) {
   // Delete (admin only)
   if (isAdmin) {
     document.querySelectorAll('.btn-delete-lesson').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const { id, date } = btn.dataset;
-        document.getElementById('delete-lesson-date').textContent = date;
-
-        const confirmBtn = document.getElementById('btn-confirm-delete-lesson');
-        const fresh = confirmBtn.cloneNode(true);
-        confirmBtn.replaceWith(fresh);
-        fresh.addEventListener('click', async () => {
-          try {
-            await softDeleteLesson(id);
-            bootstrap.Modal.getInstance(
-              document.getElementById('deleteLessonModal')
-            )?.hide();
-            showToast('Lesson deleted.', 'warning');
-            await reloadLessons(isAdmin);
-          } catch (err) {
-            showToast('Failed to delete: ' + err.message, 'danger');
-          }
+        const confirmed = await confirmDelete({
+          title:   'Delete Lesson',
+          message: `Lesson on ${date} will be removed from all views.`,
         });
-
-        new bootstrap.Modal(document.getElementById('deleteLessonModal')).show();
+        if (!confirmed) return;
+        try {
+          await softDeleteLesson(id);
+          showToast('Lesson deleted.', 'warning');
+          await reloadLessons(isAdmin);
+        } catch (err) {
+          showToast('Failed to delete: ' + err.message, 'danger');
+        }
       });
     });
   }
@@ -1141,26 +1128,20 @@ function wireNoteButtons(canDelete) {
   // ── Delete (admin + primary only) ──
   if (canDelete) {
     document.querySelectorAll('.btn-delete-note').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const { id } = btn.dataset;
-
-        const confirmBtn = document.getElementById('btn-confirm-delete-note');
-        const fresh = confirmBtn.cloneNode(true);
-        confirmBtn.replaceWith(fresh);
-        fresh.addEventListener('click', async () => {
-          try {
-            await softDeleteNote(id);
-            bootstrap.Modal.getInstance(
-              document.getElementById('deleteNoteModal')
-            )?.hide();
-            showToast('Note deleted.', 'warning');
-            await reloadNotes(canDelete);
-          } catch (err) {
-            showToast('Failed to delete: ' + err.message, 'danger');
-          }
+        const confirmed = await confirmDelete({
+          title:   'Delete Note',
+          message: 'This note will be permanently removed.',
         });
-
-        new bootstrap.Modal(document.getElementById('deleteNoteModal')).show();
+        if (!confirmed) return;
+        try {
+          await softDeleteNote(id);
+          showToast('Note deleted.', 'warning');
+          await reloadNotes(canDelete);
+        } catch (err) {
+          showToast('Failed to delete: ' + err.message, 'danger');
+        }
       });
     });
   }
@@ -1456,27 +1437,21 @@ function wireSongButtons(canDelete) {
   // ── Delete (Primary teacher + Admin only) ──
   if (canDelete) {
     document.querySelectorAll('.btn-delete-song').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const { id, name } = btn.dataset;
-        document.getElementById('delete-song-name').textContent = name;
-
-        const confirmBtn = document.getElementById('btn-confirm-delete-song');
-        const fresh = confirmBtn.cloneNode(true);
-        confirmBtn.replaceWith(fresh);
-        fresh.addEventListener('click', async () => {
-          try {
-            await deleteSong(id);
-            bootstrap.Modal.getInstance(
-              document.getElementById('deleteSongModal')
-            )?.hide();
-            showToast('Song deleted.', 'warning');
-            await reloadSongs(canDelete);
-          } catch (err) {
-            showToast('Failed to delete: ' + err.message, 'danger');
-          }
+        const confirmed = await confirmDelete({
+          title:        'Remove Song',
+          message:      `"${name}" will be permanently removed.`,
+          confirmLabel: 'Remove',
         });
-
-        new bootstrap.Modal(document.getElementById('deleteSongModal')).show();
+        if (!confirmed) return;
+        try {
+          await deleteSong(id);
+          showToast('Song deleted.', 'warning');
+          await reloadSongs(canDelete);
+        } catch (err) {
+          showToast('Failed to delete: ' + err.message, 'danger');
+        }
       });
     });
   }
@@ -1671,27 +1646,20 @@ function wireRecordingButtons(canDelete) {
   // ── Delete (admin + primary only) ──
   if (canDelete) {
     document.querySelectorAll('.btn-delete-recording').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const { id, path, name } = btn.dataset;
-        document.getElementById('delete-recording-name').textContent = name;
-
-        const confirmBtn = document.getElementById('btn-confirm-delete-recording');
-        const fresh = confirmBtn.cloneNode(true);
-        confirmBtn.replaceWith(fresh);
-        fresh.addEventListener('click', async () => {
-          try {
-            await softDeleteRecording(id, path);
-            bootstrap.Modal.getInstance(
-              document.getElementById('deleteRecordingModal')
-            )?.hide();
-            showToast('Recording deleted.', 'warning');
-            await reloadRecordings(canDelete);
-          } catch (err) {
-            showToast('Failed to delete: ' + err.message, 'danger');
-          }
+        const confirmed = await confirmDelete({
+          title:   'Delete Recording',
+          message: `"${name}" will be permanently removed.`,
         });
-
-        new bootstrap.Modal(document.getElementById('deleteRecordingModal')).show();
+        if (!confirmed) return;
+        try {
+          await softDeleteRecording(id, path);
+          showToast('Recording deleted.', 'warning');
+          await reloadRecordings(canDelete);
+        } catch (err) {
+          showToast('Failed to delete: ' + err.message, 'danger');
+        }
       });
     });
   }
