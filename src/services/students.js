@@ -140,6 +140,31 @@ export async function endAssignment(assignmentId) {
 }
 
 /**
+ * Update an assistant assignment's dates. Admin only.
+ */
+export async function updateAssignment(assignmentId, { activeFrom, activeTo }) {
+  const { error } = await supabase
+    .from('student_teacher_assignments')
+    .update({
+      active_from: activeFrom || null,
+      active_to:   activeTo   || null,
+    })
+    .eq('id', assignmentId);
+  if (error) throw error;
+}
+
+/**
+ * Permanently delete an assignment record. Admin only.
+ */
+export async function deleteAssignment(assignmentId) {
+  const { error } = await supabase
+    .from('student_teacher_assignments')
+    .delete()
+    .eq('id', assignmentId);
+  if (error) throw error;
+}
+
+/**
  * Reassign the primary teacher for a student. Admin only.
  * Closes the current open primary assignment (sets active_to = now)
  * then inserts a new one. Pass null to clear without reassigning.

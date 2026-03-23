@@ -1,213 +1,467 @@
-# PROJECT: Private School Student Progress & Operations App (MVP)
+# Music Lab — Technology Stack & Architecture
 
-## SECTION: TECHNOLOGY STACK (COMPLETE LIST)
-
-Purpose: Paste into project folder / documentation so every chat has the full context.
+**Project:** Music Lab — Internal School Operations & Progress Tracking App
+**Status:** MVP Delivered — March 2026
 
 ---
 
-## 1) CORE TECHNOLOGIES (REQUIRED BY ASSIGNMENT)
+## 1. CORE TECHNOLOGY STACK
 
-### 1.1 Frontend (No frameworks)
+### 1.1 Frontend
 
-- HTML5
-- CSS3
-- Custom styles + responsive rules
-- JavaScript (Vanilla, ES6+)
-- DOM manipulation, events
-- Fetch API (async/await)
-- Form handling + validation
-- Multi-page structure (each page in separate file or template fragment)
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| HTML5 | — | Page structure, semantic markup |
+| CSS3 | — | Custom design system, responsive rules |
+| JavaScript (Vanilla, ES6+) | — | All application logic |
+| ES Modules (`type="module"`) | — | Code splitting, clean imports |
+
+No JavaScript framework (React, Vue, Angular). All DOM manipulation is vanilla JS with template literals for HTML generation.
 
 ### 1.2 UI / Styling
 
-- Bootstrap (CSS + JS bundle)
-- Layout: grid system, responsive utilities
-- Components: sidebar, dashboard, cards, tables, forms, buttons, tabs, modals
-- Icons library (recommended)
-- Bootstrap Icons (or equivalent lightweight icon set)
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| Bootstrap | 5.3.3 (CDN) | Layout grid, components (modals, collapse, offcanvas, tabs, badges) |
+| Bootstrap Icons | 1.11.3 (CDN) | Icon set (`bi bi-*`) used throughout |
+| Inter (Google Fonts) | — | Primary typeface via `@import` in `main.css` |
+| Custom CSS (`src/styles/main.css`) | — | Design system tokens, component overrides |
 
 ### 1.3 Backend (BaaS)
 
-- Supabase
-- Supabase Database (PostgreSQL)
-- Supabase Auth (email/password, session, JWT)
-- Supabase Storage (file uploads: audio/video/attachments)
-- Supabase Row-Level Security (RLS) policies
-- Supabase Migrations (schema changes tracked in SQL)
-- (Optional, not MVP) Supabase Realtime
-- (Optional, not MVP) Supabase Edge Functions
+| Technology | Purpose |
+|------------|---------|
+| Supabase | Backend-as-a-Service platform |
+| PostgreSQL (via Supabase) | Primary relational database |
+| Supabase Auth | Email/password authentication, session management, JWT tokens, invite flow |
+| Supabase Storage | Private file storage bucket (`recordings-private`) for audio/video |
+| Supabase Row-Level Security (RLS) | Database-enforced access control per user role and assignment |
+| `@supabase/supabase-js` | v2 client library (imported via npm, bundled by Vite) |
 
-### 1.4 Build Tools
+### 1.4 Third-Party Integrations
 
-- Node.js
-- npm
-- Vite
-- Dev server
-- Bundling/build output
-- Environment variables support
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| Google Calendar API v3 | — | Read and write events on user's primary calendar |
+| Google Identity Services (GIS) | — | OAuth 2.0 token acquisition for Google APIs |
+| FullCalendar | 6.1.15 (CDN) | Calendar UI component (week / day views) |
+| `@fullcalendar/core` | 6.1.15 | Core FullCalendar package |
+| `@fullcalendar/timegrid` | 6.1.15 | Time grid view (week/day) |
+| `@fullcalendar/interaction` | 6.1.15 | Click and drag interactions |
+| `@fullcalendar/google-calendar` | 6.1.15 | Not used directly — custom API layer used instead |
 
-### 1.5 Deployment
+### 1.5 Build Tools
 
-- Netlify
-- CI/CD from GitHub
-- Build command: vite build
-- Environment variables setup (Supabase keys)
-- Static hosting
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| Vite | Latest | Dev server, ES module bundling, environment variables |
+| Node.js | Latest LTS | Runtime for Vite and npm |
+| npm | — | Package manager |
 
----
+### 1.6 Deployment
 
-## 2) DEVELOPMENT TOOLING (WORKFLOW)
+| Technology | Purpose |
+|------------|---------|
+| Netlify | Static hosting with CI/CD |
+| GitHub | Version control, source of truth for Netlify deploys |
 
-### 2.1 Version Control
+**Build configuration:**
+```
+Build command:    vite build
+Publish directory: dist
+```
 
-- Git
-- GitHub
-- Remote repo
-- Commit per working milestone
-
-### 2.2 AI-Assisted Development
-
-- GitHub Copilot
-- Copilot Agent Instructions
-- File: .github/copilot-instructions.md
-- Contains:
-  - project description
-  - architecture rules
-  - code conventions
-  - UI rules
-  - Supabase + RLS guidelines
-
-### 2.3 Editor / Local Dev
-
-- VS Code
-- Recommended extensions:
-  - GitHub Copilot
-  - ESLint (if you add it)
-  - Prettier (if you add it)
+**Required environment variables:**
+```
+VITE_SUPABASE_URL=<your-supabase-project-url>
+VITE_SUPABASE_ANON_KEY=<your-supabase-anon-key>
+VITE_GOOGLE_CLIENT_ID=<your-google-oauth-client-id>
+```
 
 ---
 
-## 3) ARCHITECTURE / CONCEPTS (YOU MUST FOLLOW)
+## 2. APPLICATION ARCHITECTURE
 
-### 3.1 App Architecture
+### 2.1 Architecture Pattern — MPA (Multi-Page Application)
 
-- Multi-Page App (MPA)
-- Separate pages / routes:
-  - /, /login, /dashboard, /students, /students/{id}, /teachers, /announcements,
-  - /announcements/{id}
-- Modular code structure (no monolith files)
-  - /pages (page controllers / rendering)
-  - /services (Supabase queries, auth, storage)
-  - /components (header/footer/tabs/modals/toasts)
-  - /utils (helpers: validators, date formatting, etc.)
-  - /styles (custom CSS)
+Each page is a standalone `.html` file with a paired `.js` module. There is no client-side router. Navigation is standard `<a href>` links. This keeps the architecture simple, auditable and fast to load.
 
-### 3.2 Separation of Concerns
+```
+/src/pages/
+  auth/
+    set-password.html + set-password.js
+  dashboard/
+    dashboard.html + dashboard.js
+  students/
+    students.html + students.js
+    student-detail.html + student-detail.js
+  teachers/
+    teachers.html + teachers.js
+  announcements/
+    announcements.html + announcements.js
+    announcement-detail.html + announcement-detail.js
+  profile/
+    profile.html + profile.js
+  login/
+    login.html + login.js   (inline CSS, no main.css dependency)
+```
 
-- UI (HTML templates / fragments)
-- Styles (CSS)
-- Logic (JS)
-- Data access (services calling Supabase)
+### 2.2 Module Structure
 
-### 3.3 Responsive UI
+```
+src/
+  components/         # Shared UI components
+    navbar.js         # Sidebar navigation (dark theme, responsive offcanvas)
+    toast.js          # Toast notification system
+    modal.js          # Shared confirmDelete() modal
+    calendarDrawer.js # Google Calendar offcanvas drawer (FullCalendar)
 
-- Desktop + Mobile support
-- Bootstrap grid + utilities
+  pages/              # Page controllers (one JS per HTML page)
+    dashboard/
+    students/
+    teachers/
+    announcements/
+    profile/
+    auth/
 
----
+  services/           # All Supabase + external API calls
+    supabase.js       # Supabase client init
+    auth.js           # Login, logout, session
+    students.js       # Students + parents + assignments CRUD
+    teachers.js       # Teachers directory + management
+    lessons.js        # Lessons CRUD + stats
+    notes.js          # Student notes CRUD
+    songs.js          # Songs (repertoire) CRUD
+    recordings.js     # Recordings upload + metadata
+    announcements.js  # Announcements + comments + reads
+    googleCalendar.js # Google Calendar OAuth + API calls
 
-## 4) DATABASE / SECURITY TECHNOLOGIES (SUPABASE-SPECIFIC)
+  styles/
+    main.css          # Design system tokens, global styles, component overrides
 
-### 4.1 Database
+  utils/
+    guards.js         # authGuard(), requireRole(), redirectIfAuthenticated()
+    formatters.js     # formatDate(), formatDateTime(), toDateTimeLocal(), formatBytes()
+    validators.js     # Input validation helpers
 
-- PostgreSQL (managed by Supabase)
-- Schema design concepts
-  - normalization
-  - relationships (FKs)
-  - indexing
-  - constraints (CHECK, unique partial indexes)
+supabase/
+  migrations/         # SQL migration files (schema history)
 
-### 4.2 Authentication & Authorization
+DOCS/
+  DATABASE_SCHEMA.md  # Full table definitions with SQL
+  RLS.md              # Row-Level Security policy documentation
+  SETUP.md            # Local setup + Supabase configuration guide
+  CREDENTIALS.md      # Demo credentials (internal only)
+```
 
-- JWT-based sessions (Supabase Auth)
-- Row-Level Security (RLS)
-  - policies per table
-  - access control by assignments:
-    - primary / assistant teacher access
-  - admin overrides
+### 2.3 Separation of Concerns
 
-### 4.3 Storage
-
-- Supabase Storage buckets
-- audio/video uploads stored as files
-- metadata stored in `recordings` table
-
----
-
-## 5) UI FEATURES (IMPLEMENTATION TECH / PATTERNS)
-
-### 5.1 Notifications
-
-- Toast notifications
-  - error toasts for failed actions
-  - info toasts for non-obvious successful actions
-- Unread badge mechanism
-  - announcement_reads table (read tracking)
-
-### 5.2 Dialogs / Popups
-
-- Bootstrap modals
-  - confirm delete
-  - create/edit forms (songs, notes, announcements comments, etc.)
-
-### 5.3 Tabs UI
-
-- Bootstrap tabs (Student details page)
-  - Lessons / Songs / Recordings / Notes
-
-### 5.4 Rich Text (MVP-compatible)
-
-- Simple approach:
-  - store as plain text OR HTML-like content
-  - render safely (escape if needed)
-  - (Optional) lightweight editor later
-
----
-
-## 6) DOCUMENTATION (REQUIRED DELIVERABLES)
-
-- README / documentation in GitHub:
-  - Project description (what it does, roles)
-  - Technology stack (this file)
-  - Architecture (MPA + modular folders)
-  - Database schema (tables + ERD)
-  - RLS overview (who can access what)
-  - Local setup guide
-  - Deployment guide (Netlify + env vars)
-  - Demo credentials (if you provide)
+| Layer | Location | Responsibility |
+|-------|----------|---------------|
+| Structure | `.html` files | DOM skeleton, IDs referenced by JS |
+| Styles | `main.css` + Bootstrap | Visual design, responsive behavior |
+| Logic | `pages/*.js` | Page init, event wiring, render functions |
+| Data access | `services/*.js` | All Supabase queries, file uploads, API calls |
+| Auth/Guards | `utils/guards.js` | Session validation, role enforcement |
+| Shared UI | `components/*.js` | Navbar, toasts, modals, calendar drawer |
 
 ---
 
-## 7) OPTIONAL / NICE-TO-HAVE (ONLY IF TIME)
+## 3. DESIGN SYSTEM
 
-- ESLint (code quality)
-- Prettier (formatting)
-- Supabase Realtime (live refresh)
-- Simple analytics (counts, last lesson date, etc.)
+### 3.1 Color Palette
+
+All colors are defined as CSS custom properties in `main.css`.
+
+**Brand — Indigo palette:**
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--brand-950` | `#1e1b4b` | Deep indigo (darkest) |
+| `--brand-900` | `#312e81` | Dark indigo |
+| `--brand-800` | `#3730a3` | Active button press |
+| `--brand-700` | `#4338ca` | Button background, badge bg |
+| `--brand-600` | `#4f46e5` | Primary accent — links, focus rings, icons |
+| `--brand-300` | `#a5b4fc` | Light indigo — sidebar active nav, borders |
+| `--brand-100` | `#e0e7ff` | Subtle highlight backgrounds |
+| `--brand-50`  | `#eef2ff` | Very light tint backgrounds |
+
+**Violet secondary accent** (stored as `--amber-*` for backwards compatibility with existing HTML):
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--amber-500` | `#7c3aed` | Violet accent |
+| `--amber-400` | `#a78bfa` | Light violet / lavender |
+
+**Sidebar:**
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--sb-bg` | `#0e0c2e` | Base dark navy |
+| `--sb-gradient` | `#0d0c27 → #0a0920` + indigo radial glows | Full sidebar background |
+| `--sb-nav-active-bg` | `rgba(129,140,248,0.16)` | Active nav item background |
+| `--sb-nav-active-fg` | `#a5b4fc` | Active nav item text/icon color |
+| `--sb-text` | `rgba(210,215,255,0.82)` | Nav item text (cool blue-white) |
+
+**Surfaces:**
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--surface` | `#f4f4fd` | Page background (cool off-white with indigo tint) |
+| `--surface-card` | `#ffffff` | Card backgrounds |
+| `--surface-inset` | `#ebebf7` | Inset / secondary backgrounds |
+| `--surface-border` | `#ddddf0` | Card and input borders |
+
+**Text:**
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--text-900` | `#1a1829` | Primary text (dark indigo-tinted near-black) |
+| `--text-600` | `#4b4870` | Secondary / muted text |
+| `--text-400` | `#8b89a8` | Placeholder / disabled text |
+
+### 3.2 Typography
+
+- **Font:** Inter (Google Fonts, weights 400/500/600/700)
+- **Scale:** Bootstrap default scale, with component-specific overrides in `main.css`
+
+### 3.3 Sidebar Navigation
+
+- Dark near-black navy background — gradient from `#0d0c27` to `#0a0920` with indigo radial glow overlays
+- Active nav item: light indigo/lavender `#a5b4fc`
+- Nav text: cool blue-white tint `rgba(210,215,255,0.82)`
+- Collapses to offcanvas drawer on mobile (hamburger trigger)
+- Hamburger uses white icon (`btn-close-white` for offcanvas close)
+- Calendar link opens an offcanvas drawer (right side) — not a page navigation
+
+### 3.4 Component CSS Classes (Custom)
+
+| Class | Purpose |
+|-------|---------|
+| `.ml-page-header` | Flex header: page title + action button |
+| `.ml-page-subtitle` | Muted subtitle under h1 |
+| `.ml-toolbar` | Search and filter bar row |
+| `.ml-search-wrap` + `.ml-search-icon` | Search input with leading icon |
+| `.ml-select-sm` | Compact dropdown select |
+| `.ml-inline-form` | Collapsible add/edit form panel |
+| `.ml-inline-form-title` | Form panel heading |
+| `.ml-empty-state` | Empty state wrapper |
+| `.ml-empty-icon` | Large icon in empty state |
+| `.ml-empty-title` | Empty state heading |
+| `.ml-empty-desc` | Empty state description |
+| `.ml-back-link` | Back navigation link (← Back to ...) |
+| `.ml-stat-card` | Dashboard stat card |
+| `.ml-stat-icon.{green\|amber\|red\|blue}` | Colored icon in stat card |
+| `.ml-stat-value` | Large number in stat card |
+| `.ml-stat-label` | Label below value in stat card |
+| `.ml-stat-link` | Clickable stat card with chevron |
+| `.ml-toast.ml-toast-{success\|danger\|warning\|info}` | Toast notification (white card + left border) |
+| `.ml-avatar` | User/teacher initials avatar |
+| `.ml-confirm-modal` | Shared delete confirmation modal |
+| `.ml-app` | Root app wrapper |
+| `.ml-main` | Main content area |
+| `.ml-content` | Inner content container (max-width constrained) |
+
+### 3.5 Bootstrap Overrides
+
+In `main.css`, Bootstrap's default colors are overridden via CSS variables:
+
+- `.btn-primary` → forest green (`--brand-700`)
+- `.form-control:focus` → green focus ring (3px rgba)
+- `.text-primary` → `var(--brand-600)`
+- `.card` → warm border + shadow
 
 ---
 
-## 8) FILES TO INCLUDE IN PROJECT ROOT (RECOMMENDED)
+## 4. AUTHENTICATION ARCHITECTURE
 
-- README.md
-- .github/copilot-instructions.md
-- supabase/migrations/*.sql
-- .env.example (never commit real secrets)
-- package.json
-- vite.config.js
-- /src (or your chosen structure)
+### 4.1 Session Management
+
+- Supabase Auth handles JWT issuance and refresh automatically
+- Sessions persist across page loads via `localStorage` (Supabase default)
+- Every protected page calls `authGuard()` at init
+
+### 4.2 Auth Guards (`src/utils/guards.js`)
+
+| Function | Behavior |
+|----------|---------|
+| `authGuard()` | Returns `{ session, profile }` or redirects to `/login` |
+| `requireRole(role)` | Enforces `'admin'` or `'teacher'`; redirects to dashboard if wrong role |
+| `redirectIfAuthenticated()` | Login page only — sends logged-in users to dashboard |
+
+### 4.3 Invite Flow
+
+1. Admin invites a new teacher via Supabase invite (sends email)
+2. Teacher clicks invite link → lands on `/src/pages/auth/set-password.html`
+3. Teacher sets their password
+4. On success: redirect to `/src/pages/dashboard/dashboard.html`
+
+### 4.4 Login Page
+
+- `login.html` uses **inline CSS** (no dependency on `main.css`)
+- Design tokens applied manually so the login page works standalone without Vite serving styles
+- Language: Bulgarian (`lang="bg"`)
 
 ---
 
-END OF TECHNOLOGY STACK
+## 5. GOOGLE CALENDAR INTEGRATION
+
+### 5.1 OAuth 2.0 Flow
+
+```
+User clicks "Connect Google Calendar"
+  → requestCalendarAccess()
+    → Google Identity Services tokenClient.requestAccessToken()
+      → Google consent screen
+        → Access token returned
+          → Token stored in sessionStorage (with expiry)
+          → User email stored in localStorage (keyed by Supabase UID)
+          → prefetchEvents() triggered immediately
+            → FullCalendar initialized with cached events
+```
+
+### 5.2 Scope Requirements
+
+```
+https://www.googleapis.com/auth/calendar
+https://www.googleapis.com/auth/calendar.events
+https://www.googleapis.com/auth/userinfo.email
+https://www.googleapis.com/auth/userinfo.profile
+```
+
+If a user previously authorized the app without calendar scopes, the app detects `INSUFFICIENT_SCOPES` (HTTP 403) and triggers `forceConsent = true` re-authorization.
+
+### 5.3 Event Cache
+
+Events are cached in a `Map` keyed by `{timeMin}_{timeMax}`. The cache:
+- Is populated on first fetch for any date range
+- Prefetches the current week immediately on token acquisition
+- Is cleared entirely on create / update / delete operations
+
+### 5.4 FullCalendar Configuration
+
+| Option | Value |
+|--------|-------|
+| Views | `timeGridWeek` (desktop), `timeGridDay` (mobile) |
+| Locale | `bg` (Bulgarian) |
+| Week start | Monday (`firstDay: 1`) |
+| Business hours | 08:00 – 20:00 |
+| Slot duration | 30 minutes |
+| Event source | Custom `events` callback using `googleCalendar.js` service |
+
+---
+
+## 6. STORAGE ARCHITECTURE
+
+### 6.1 Bucket: `recordings-private`
+
+| Setting | Value |
+|---------|-------|
+| Visibility | Private (authenticated only) |
+| Allowed MIME types | `audio/*`, `video/*` |
+| Path pattern | `{student_id}/{timestamp}_{filename}` |
+
+File metadata is stored in the `recordings` table. Signed URLs are generated on demand for playback.
+
+### 6.2 Access Validation
+
+Storage RLS validates that the requesting user has an active assignment to the student referenced in the file path. This prevents any URL-guessing attacks.
+
+---
+
+## 7. KEY UI PATTERNS
+
+### 7.1 Shared Delete Confirmation (`src/components/modal.js`)
+
+```javascript
+const confirmed = await confirmDelete({
+  title: 'Delete Recording',
+  message: 'This file will be permanently removed.',
+  confirmLabel: 'Delete',  // optional, defaults to 'Delete'
+});
+if (!confirmed) return;
+// proceed with deletion
+```
+
+- Single Bootstrap modal DOM instance, injected once, reused everywhere
+- Returns `Promise<boolean>`
+- Stale event listeners removed by cloning the confirm button on each invocation
+
+### 7.2 Toast System (`src/components/toast.js`)
+
+```javascript
+showToast('Lesson saved.', 'success');
+showToast('Failed to delete: ' + err.message, 'danger');
+```
+
+Types: `success` · `danger` · `warning` · `info`
+
+### 7.3 Navbar / Sidebar (`src/components/navbar.js`)
+
+- Generates sidebar HTML dynamically based on `profile.role`
+- Admin sees: Dashboard, Students, Teachers, Announcements, Calendar, Profile
+- Teacher sees: Dashboard, Students, Announcements, Calendar, Profile
+- Highlights active link based on `window.location.pathname`
+- Calendar link calls `initCalendarDrawer(profile.id)` — opens offcanvas, does not navigate
+
+---
+
+## 8. PERFORMANCE PATTERNS
+
+| Pattern | Implementation |
+|---------|---------------|
+| Google Calendar prefetch | `prefetchEvents()` called immediately on token — current week cached before FullCalendar mounts |
+| Dashboard parallel loads | Admin stats use independent `Promise.all`-style calls where data is not dependent |
+| Tab persistence | Active student detail tab stored in `sessionStorage` — survives back navigation |
+| Event cache | `Map` keyed by date range — avoids redundant Google API calls on same-week navigation |
+| Empty month filtering | Dashboard heatmap removes months with zero lessons before rendering |
+
+---
+
+## 9. DEVELOPMENT WORKFLOW
+
+### 9.1 Version Control
+
+- Git + GitHub
+- Feature work committed per logical milestone
+- Main branch = production-ready
+
+### 9.2 AI-Assisted Development
+
+- Claude Code (Anthropic) — primary AI pair programming tool
+- GitHub Copilot — secondary autocomplete
+
+### 9.3 Editor
+
+- VS Code / Cursor
+
+### 9.4 Local Development
+
+```bash
+cp .env.example .env
+# Fill in VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_GOOGLE_CLIENT_ID
+npm install
+npm run dev
+# App available at http://localhost:5173
+```
+
+---
+
+## 10. DOCUMENTATION FILES
+
+| File | Purpose |
+|------|---------|
+| `README.md` | Project overview, quick start |
+| `Music_Lab_PRD.md` | Full product requirements |
+| `Music_Lab_BL_&_DB.md` | Business logic rules + full DB schema |
+| `Music_Lab_TECH.md` | This file — tech stack + architecture |
+| `DOCS/DATABASE_SCHEMA.md` | SQL CREATE TABLE statements |
+| `DOCS/RLS.md` | Row-Level Security policy documentation |
+| `DOCS/SETUP.md` | Supabase + Netlify setup guide |
+| `DOCS/CREDENTIALS.md` | Demo credentials (internal only, not committed) |
+| `.github/copilot-instructions.md` | AI assistant project context |
+| `.env.example` | Environment variable template |
+
+---
+
+*Music Lab Tech Stack v2.0 — Updated March 2026*

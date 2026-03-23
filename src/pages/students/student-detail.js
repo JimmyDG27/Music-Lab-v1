@@ -9,6 +9,8 @@ import {
   getTeacherProfiles,
   addAssignment,
   endAssignment,
+  updateAssignment,
+  deleteAssignment,
   reassignPrimaryTeacher,
   createParent,
   updateParent,
@@ -105,7 +107,7 @@ function renderOverview(student, isAdmin = false) {
   const activePrimaryTeacher = assignments.find(a => a.role === 'primary' && !a.active_to);
   const primaryTeacherId     = activePrimaryTeacher?.teacher_id ?? null;
 
-  // Assigned teachers table rows
+  // Assigned teachers list items
   const teacherRows = sorted.length
     ? sorted.map(a => {
         const name   = a.teacher
@@ -116,34 +118,66 @@ function renderOverview(student, isAdmin = false) {
           : '<span class="badge bg-secondary-subtle text-secondary rounded-pill">Assistant</span>';
         const isActive  = !a.active_to;
         const statusBadge = isActive
-          ? '<span class="badge bg-success-subtle text-success rounded-pill ms-1">Active</span>'
-          : `<span class="badge bg-light text-muted rounded-pill ms-1">Ended ${formatDate(a.active_to)}</span>`;
+          ? '<span class="badge bg-success-subtle text-success rounded-pill">Active</span>'
+          : `<span class="badge bg-light text-muted rounded-pill">Ended ${formatDate(a.active_to)}</span>`;
         const period = a.role === 'assistant'
-          ? `<div class="text-muted" style="font-size:.8rem">
-               ${a.active_from ? formatDate(a.active_from) : 'Start: open'}
-               &rarr;
-               ${a.active_to   ? formatDate(a.active_to)   : 'open-ended'}
+          ? `<div class="text-muted mt-1" style="font-size:.78rem">
+               <i class="bi bi-calendar2-range me-1"></i>${a.active_from ? formatDate(a.active_from) : 'Start: open'} &rarr; ${a.active_to ? formatDate(a.active_to) : 'open-ended'}
              </div>`
           : '';
-        const endBtn = isAdmin && isActive
-          ? `<button class="btn btn-sm btn-light text-danger btn-end-assignment"
-               data-id="${escHtml(a.id)}"
-               data-name="${escHtml(name)}"
-               title="End assignment">
-               <i class="bi bi-x-circle"></i>
-             </button>`
+        const actionBtns = isAdmin && a.role !== 'primary'
+          ? `<div class="d-flex gap-1 flex-shrink-0">
+               <button class="btn btn-sm btn-light btn-edit-assignment"
+                 data-id="${escHtml(a.id)}"
+                 data-name="${escHtml(name)}"
+                 data-from="${escHtml(a.active_from ?? '')}"
+                 data-to="${escHtml(a.active_to ?? '')}"
+                 title="Edit assignment">
+                 <i class="bi bi-pencil"></i>
+               </button>
+               <button class="btn btn-sm btn-light text-danger btn-delete-assignment"
+                 data-id="${escHtml(a.id)}"
+                 data-name="${escHtml(name)}"
+                 title="Delete assignment">
+                 <i class="bi bi-trash"></i>
+               </button>
+             </div>`
           : '';
 
-        return `<tr>
-          <td class="fw-semibold">${name}</td>
-          <td>${roleBadge}${statusBadge}${period}</td>
-          <td class="text-end">${endBtn}</td>
-        </tr>`;
+        return `
+          <div class="d-flex align-items-center gap-3 p-3 rounded-3 border" data-assignment-id="${escHtml(a.id)}">
+            <div class="flex-grow-1 min-w-0">
+              <div class="fw-semibold text-truncate">${name}</div>
+              <div class="d-flex flex-wrap gap-1 mt-1">${roleBadge}${statusBadge}</div>
+              ${period}
+            </div>
+            ${actionBtns}
+          </div>
+          <div id="edit-assignment-${escHtml(a.id)}" class="d-none rounded-3 border border-top-0 px-3 py-3" style="background:#f8f9fa;margin-top:-6px;border-radius:0 0 .75rem .75rem !important">
+            <form class="edit-assignment-form" data-id="${escHtml(a.id)}" novalidate>
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="form-label fw-semibold" style="font-size:.78rem">Active From</label>
+                  <input type="date" name="active_from" class="form-control form-control-sm" value="${escHtml(a.active_from ? a.active_from.slice(0,10) : '')}" />
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold" style="font-size:.78rem">Active To</label>
+                  <input type="date" name="active_to" class="form-control form-control-sm" value="${escHtml(a.active_to ? a.active_to.slice(0,10) : '')}" />
+                </div>
+              </div>
+              <div class="d-flex gap-2 mt-2">
+                <button type="submit" class="btn btn-primary btn-sm">
+                  <span class="spinner-border spinner-border-sm me-1 d-none edit-assignment-spinner" role="status"></span>Save
+                </button>
+                <button type="button" class="btn btn-light btn-sm btn-cancel-edit-assignment" data-id="${escHtml(a.id)}">Cancel</button>
+              </div>
+            </form>
+          </div>`;
       }).join('')
-    : '<tr><td colspan="3" class="text-muted fst-italic">No teacher assignments.</td></tr>';
+    : '<p class="text-muted fst-italic small mb-0">No teacher assignments.</p>';
 
   const addBtn = isAdmin
-    ? `<button class="btn btn-sm btn-outline-primary"
+    ? `<button class="btn btn-sm btn-outline-primary flex-shrink-0"
          data-bs-toggle="collapse" data-bs-target="#add-assignment-collapse" aria-expanded="false">
          <i class="bi bi-plus-lg me-1"></i>Add Assistant
        </button>`
@@ -189,7 +223,7 @@ function renderOverview(student, isAdmin = false) {
 
   // Parent/guardian cards
   const addParentBtn = isAdmin
-    ? `<button class="btn btn-sm btn-outline-primary"
+    ? `<button class="btn btn-sm btn-outline-primary flex-shrink-0"
          data-bs-toggle="collapse" data-bs-target="#add-parent-collapse" aria-expanded="false">
          <i class="bi bi-plus-lg me-1"></i>Add Parent
        </button>`
@@ -320,7 +354,7 @@ function renderOverview(student, isAdmin = false) {
         <div class="col-12 col-md-6">
           <div class="card overflow-hidden">
             <div id="parent-view-${p.id}" class="card-body">
-              <div class="d-flex align-items-start gap-2 mb-1">
+              <div class="d-flex align-items-start justify-content-between gap-2 mb-1">
                 <span class="fw-semibold">${escHtml(p.full_name)}</span>
                 ${adminBtns}
               </div>
@@ -337,21 +371,14 @@ function renderOverview(student, isAdmin = false) {
     : '<p class="text-muted">No parent contacts recorded.</p>';
 
   document.getElementById('panel-overview').innerHTML = `
-    <div class="d-flex align-items-center justify-content-between mb-3">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
       <h5 class="fw-semibold mb-0">Assigned Teachers</h5>
       ${addBtn}
     </div>
     ${addAssistantCollapse}
-    <div class="table-responsive mb-5">
-      <table class="table table-sm align-middle">
-        <thead>
-          <tr><th>Teacher</th><th>Role &amp; Status</th><th></th></tr>
-        </thead>
-        <tbody>${teacherRows}</tbody>
-      </table>
-    </div>
+    <div class="d-flex flex-column gap-2 mb-5">${teacherRows}</div>
 
-    <div class="d-flex align-items-center justify-content-between mb-3">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
       <h5 class="fw-semibold mb-0">Parent / Guardian Contacts</h5>
       ${addParentBtn}
     </div>
@@ -570,32 +597,64 @@ function wireOverviewAdminButtons(primaryTeacherId) {
 
   // Wire Add Parent button
   wireParentAdminButtons();
-  // "End" buttons per row
-  document.querySelectorAll('.btn-end-assignment').forEach(btn => {
+
+  // Edit assignment — toggle inline form
+  document.querySelectorAll('.btn-edit-assignment').forEach(btn => {
     btn.addEventListener('click', () => {
-      const assignId  = btn.dataset.id;
-      const name      = btn.dataset.name;
+      const panel = document.getElementById(`edit-assignment-${btn.dataset.id}`);
+      if (!panel) return;
+      panel.classList.toggle('d-none');
+    });
+  });
 
-      document.getElementById('end-assignment-msg').textContent =
-        `End ${name}’s assignment?`;
+  // Cancel edit assignment
+  document.querySelectorAll('.btn-cancel-edit-assignment').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById(`edit-assignment-${btn.dataset.id}`)?.classList.add('d-none');
+    });
+  });
 
-      const confirmBtn = document.getElementById('btn-confirm-end');
-      const fresh = confirmBtn.cloneNode(true);
-      confirmBtn.replaceWith(fresh);
-      fresh.addEventListener('click', async () => {
-        try {
-          await endAssignment(assignId);
-          bootstrap.Modal.getInstance(
-            document.getElementById('endAssignmentModal')
-          )?.hide();
-          showToast(`${name}’s assignment ended.`, 'warning');
-          await reloadOverview();
-        } catch (err) {
-          showToast('Failed to end assignment: ' + err.message, 'danger');
-        }
+  // Save edited assignment
+  document.querySelectorAll('.edit-assignment-form').forEach(form => {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id      = form.dataset.id;
+      const spinner = form.querySelector('.edit-assignment-spinner');
+      const saveBtn = form.querySelector('[type="submit"]');
+      const fd      = new FormData(form);
+
+      spinner.classList.remove('d-none');
+      saveBtn.disabled = true;
+      try {
+        await updateAssignment(id, {
+          activeFrom: fd.get('active_from') || null,
+          activeTo:   fd.get('active_to')   || null,
+        });
+        showToast('Assignment updated.', 'success');
+        await reloadOverview();
+      } catch (err) {
+        showToast('Update failed: ' + err.message, 'danger');
+        spinner.classList.add('d-none');
+        saveBtn.disabled = false;
+      }
+    });
+  });
+
+  // Delete assignment
+  document.querySelectorAll('.btn-delete-assignment').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const confirmed = await confirmDelete({
+        title:   'Delete Assignment',
+        message: `Remove ${btn.dataset.name} as assistant teacher? This cannot be undone.`,
       });
-
-      new bootstrap.Modal(document.getElementById('endAssignmentModal')).show();
+      if (!confirmed) return;
+      try {
+        await deleteAssignment(btn.dataset.id);
+        showToast('Assignment deleted.', 'success');
+        await reloadOverview();
+      } catch (err) {
+        showToast('Delete failed: ' + err.message, 'danger');
+      }
     });
   });
 }

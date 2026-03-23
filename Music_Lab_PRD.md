@@ -1,566 +1,438 @@
-# PRODUCT REQUIREMENTS DOCUMENT (PRD) — v1.0 (Locked Scope)
+# PRODUCT REQUIREMENTS DOCUMENT (PRD) — v2.0
 
-Project: School Internal Progress & Operations App (MVP)  
-Model: Single-tenant (1 school), extensible for other school types  
-Architecture: MPA (HTML/CSS/Vanilla JS) + Supabase (DB/Auth/Storage/RLS)
+**Project:** Music Lab — Internal School Operations & Progress Tracking App
+**Model:** Single-tenant (1 school), domain model extensible to other school types
+**Architecture:** MPA (Multi-Page Application) — HTML / CSS / Vanilla JS + Supabase (DB / Auth / Storage / RLS)
+**Status:** MVP Delivered
 
-==================================================================
+---
 
-# PART 1 — PRODUCT VISION, FUNCTIONAL SCOPE, USER EXPERIENCE
+# PART 1 — PRODUCT VISION & FUNCTIONAL SCOPE
 
-==================================================================
+---
+
 ## 1. PRODUCT VISION
 
 ### 1.1 Core Objective
 
-To build a secure internal operational system for a single school that:
+Music Lab is a secure internal operational system for a single music school that:
 
-• Tracks student progress structurally  
-• Centralizes lesson history, notes, recordings, repertoire  
-• Enables controlled teacher access via role assignments  
-• Replaces chaotic messaging (e.g. Viber) with structured announcements  
-• Gives admin full operational oversight  
+- Tracks student progress in a structured, historical way
+- Centralizes lesson history, notes, recordings and repertoire per student
+- Gives teachers controlled, role-based access only to their assigned students
+- Replaces chaotic group messaging (Viber, WhatsApp) with structured, targeted announcements
+- Integrates with Google Calendar for lesson and event scheduling
+- Gives the school administrator full operational oversight and analytics
 
-The product is single-tenant (1 school), but the domain model is designed to be  
-reusable across different school types (music, math, language, etc.) with minimal  
-structural changes.
+This is **not an LMS**. It is an internal operational progress tracking system.
 
-The system is not an LMS. It is an operational progress tracking system.
+### 1.2 Target Users
 
-------------------------------------------------------------
+| User | Description |
+|------|-------------|
+| Admin | School owner / manager — full access to all data and operations |
+| Teacher | Instructor — access scoped strictly to assigned students |
+
+> Parents are **not** users in MVP. They appear only as contact records on student profiles.
+
+---
 
 ## 2. USER ROLES & PERMISSIONS
 
-### 2.1 Roles
+### 2.1 Role Definitions
 
-• Admin  
-• Teacher  
+**Admin:**
+- Full CRUD on all entities (teachers, students, parents, assignments, lessons, notes, recordings, songs, announcements)
+- Soft-delete on lessons, notes, recordings
+- Hard-delete on songs, parents, assignment records
+- Full announcement management with scheduling and audience targeting
+- Comment moderation across all announcements
+- Access to admin dashboard with system-wide analytics
+- Google Calendar access
 
-Parents are NOT users in MVP (contact-only records).
-
-------------------------------------------------------------
+**Teacher:**
+- Edit own profile only (no access to other profiles)
+- Read-only access to the teacher directory (contacts)
+- Student visibility: **only assigned students** (primary + active assistant)
+- Create/update lessons, notes, recordings, songs for assigned students
+- Delete notes/recordings/songs: **primary teacher only**
+- Read announcements targeted to them; full CRUD on own comments
+- Google Calendar access
 
 ### 2.2 Teacher–Student Access Model
 
-Access is controlled through:
+Access is controlled through the `student_teacher_assignments` table.
 
-student_teacher_assignments
+| Assignment Type | Condition |
+|-----------------|-----------|
+| `primary` | `active_to IS NULL` — permanent, no end date |
+| `assistant` | `active_from IS NULL OR now() >= active_from` AND `active_to IS NULL OR now() < active_to` |
 
-Assignment types:
+A teacher has access to a student **only if** a valid assignment record exists matching the above conditions. This rule is enforced both in RLS policies and in application service queries.
 
-• primary → permanent (no active_to)  
-• assistant → time-bounded (active_from / active_to)  
+Admin bypasses all access restrictions.
 
-Teacher has access to a student only if:
+### 2.3 Assignment Management (Admin)
 
-primary AND active_to IS NULL  
-OR  
-assistant AND  
-(active_from IS NULL OR now() >= active_from)  
-AND (active_to IS NULL OR now() < active_to)  
+- Add assistant teacher to a student with optional date range
+- Edit assistant assignment dates (active_from / active_to)
+- Delete assignment permanently
+- Primary teacher is managed via the Students list reassignment flow; the delete button is intentionally hidden on the student detail Info tab
 
-This rule applies consistently across:
-
-• Students  
-• Lessons  
-• Notes  
-• Recordings  
-• Songs  
-
-Admin bypasses all restrictions.
-
-------------------------------------------------------------
+---
 
 ## 3. FUNCTIONAL MODULES
 
 ### 3.1 Authentication
 
-• Email/password login (Supabase Auth)  
-• Role-based routing  
-• Session persistence  
-• Page guards  
-
-------------------------------------------------------------
+- Email / password login (Supabase Auth)
+- New users receive an invite link and set their own password on first login
+- Role-based routing on every protected page via `authGuard()`
+- Session persistence across browser tabs
+- `redirectIfAuthenticated()` guard on login page
 
 ### 3.2 Dashboard
 
-Teacher Dashboard:
+**Admin Dashboard:**
+- Total Students count (with link to students list)
+- Total Teachers count (with link to teachers list)
+- Total Lessons count — current month vs. previous month delta
+- Unread Announcements badge
+- Lesson Activity by Teacher table with monthly heatmap (modal)
+- Heatmap filters empty months (months with no lessons are hidden)
 
-• Assigned students count  
-• Unread announcements badge  
-• My Lessons Taught  
-
-Admin Dashboard:
-
-• Total students  
-• Total teachers  
-• Total Lessons 
-
-------------------------------------------------------------
+**Teacher Dashboard:**
+- Assigned Students count
+- My Lessons this month count
+- Unread Announcements count
+- My Lessons by Student table with monthly heatmap (modal, shows students — not teachers)
+- Delta comparison vs. previous month on lesson count
 
 ### 3.3 Students Module
 
-Students List:
+**Students List:**
 
-Admin:  
-• Sees all students  
+| Role | Visibility |
+|------|-----------|
+| Admin | All students |
+| Teacher | Assigned students only |
 
-Teacher:  
-• Sees only assigned students  
+Table columns: Full Name · Primary Teacher · Last Lesson Date · Active Status · Actions
+Default sort: Alphabetical by first name
+Admin actions: Edit profile, Deactivate / Reactivate
+Search: Real-time filter by name
 
-Columns:
+**Student Detail (Tabbed Page):**
 
-• Full Name  
-• Primary Teacher  
-• Last Lesson Date  
-• Status (active/inactive)  
-• Actions  
+Tabs: **Info · Lessons · Songs · Recordings · Notes**
 
-Default sorting:
+Default tab: Info (persisted in `sessionStorage` across same-session navigation)
 
-• Alphabetical by first_name  
+### 3.4 Student Info Tab
 
-------------------------------------------------------------
+**Assigned Teachers section:**
+- Card-list layout (responsive, no table)
+- Each teacher shows: name, role badge (Primary / Assistant), status badge (Active / Ended)
+- For assistant teachers: date range display
+- Admin actions: Edit dates (inline form), Delete assignment
+- Primary teacher: no delete button (managed from Students list)
+- "+ Add Assistant" collapse form with teacher select, date range
 
-### 3.4 Student Details (Core Area)
-
-Tabs:
-  
-• Lessons  
-• Songs  
-• Recordings  
-• Notes
-• Info  
-
-Default sorting (system-wide rule):
-
-• Latest first (DESC by created_at or held_at)
-
-Applies to:
-
-Lessons  
-Notes  
-Recordings  
-Announcements  
-
-Songs is the only exception (see below).
-
-------------------------------------------------------------
+**Parent / Guardian Contacts section:**
+- Cards (1 column mobile, 2 columns tablet+)
+- Fields: Full Name, Relation, Phone, Email, Occupation, Notes
+- Admin: inline edit form per card, delete with shared confirm modal
+- "+ Add Parent" collapse form
 
 ### 3.5 Lessons
 
-Fields:
-
-• held_at  
-• vocal_technique  
-• song_notes  
-• homework  
+Fields: `held_at` · `vocal_technique` · `song_notes` · `homework` · `teacher`
 
 Rules:
 
-Teacher:  
-• Create  
-• Update  
-• NO delete  
+| Role | Create | Update | Delete |
+|------|--------|--------|--------|
+| Teacher (assigned) | ✓ | ✓ own | ✗ |
+| Admin | ✓ | ✓ | Soft-delete only |
 
-Admin:  
-• Soft delete (deleted_at)  
-
-Sorting:
-
-ORDER BY held_at DESC  
-
-------------------------------------------------------------
+Sort: `held_at DESC`
 
 ### 3.6 Student Notes (Journal)
 
-Fields:
-
-• body  
-• author_id  
-• created_at  
-• updated_at  
-• deleted_at (soft delete recommended)  
+Fields: `body` · `author` · `created_at` · `updated_at`
 
 Rules:
 
-Teacher:  
-• Create / Update  
-• Delete only if Primary teacher  
+| Role | Create | Update | Delete |
+|------|--------|--------|--------|
+| Teacher (assigned) | ✓ | ✓ own | Primary teacher only |
+| Admin | ✓ | ✓ | Soft-delete |
 
-Admin:  
-• Full control  
+Sort: `created_at DESC`
 
-Sorting:
+### 3.7 Recordings (Audio / Video)
 
-ORDER BY created_at DESC  
+Allowed MIME types: `audio/*` · `video/*` (no PDFs, no images in MVP)
 
-------------------------------------------------------------
+Storage: Supabase Storage private bucket `recordings-private`
 
-### 3.7 Recordings (Audio/Video Only)
-
-Allowed types:
-
-• audio/*  
-• video/*  
-
-No PDFs, no images in MVP.
-
-Storage:
-
-Supabase Storage bucket (private)
-
-Metadata fields:
-
-• file_path  
-• file_name  
-• mime_type  
-• size_bytes  
-• recorded_at  
-• note  
+Metadata fields: `file_path` · `file_name` · `mime_type` · `size_bytes` · `recorded_at` · `note`
 
 Rules:
 
-Teacher:  
-• Upload  
-• View  
-• Delete only if Primary  
+| Role | Upload | View | Delete |
+|------|--------|------|--------|
+| Teacher (assigned) | ✓ | ✓ | Primary teacher only |
+| Admin | ✓ | ✓ | Soft-delete |
 
-Admin:  
-• Full control  
-
-Sorting:
-
-ORDER BY recorded_at DESC  
-
-------------------------------------------------------------
+Sort: `recorded_at DESC`
 
 ### 3.8 Songs (Repertoire)
 
-Fields:
+Fields: `song_name` · `song_url` · `lyrics_url` · `notes` · `status`
 
-• song_name (e.g. "APT — Bruno Mars")  
-• song_url  
-• lyrics_url  
-• notes  
-• status:  
-- planned (default)  
-- started  
-- completed  
+Status values: `planned` (default) → `started` → `completed`
 
-Sorting logic (special case):
+Sort logic (special case):
+1. `status ASC` (planned → started → completed)
+2. `created_at DESC`
 
-Default sorting:  
-1. status ASC (planned → started → completed)  
-2. created_at DESC  
+This keeps active/planned songs on top, most recently added first within each group.
 
-This ensures:
+Delete: Primary teacher + Admin
 
-• Planned songs stay visible on top  
-• Recently added songs appear first within status group  
+### 3.9 Teachers Module
 
-Deletion:
+**Teachers List:**
 
-Primary teacher + Admin  
+| Role | Visibility |
+|------|-----------|
+| Admin | All teachers with full management |
+| Teacher | Read-only directory (contacts) |
 
-------------------------------------------------------------
+Admin features: Invite new teacher (sends email invite), Edit profile, Deactivate / Reactivate
+Teacher features: View contact info (phone, email, Instagram) for all colleagues
+Search: Real-time filter by name
+Filter: Show inactive teachers toggle
 
-### 3.9 Announcements System
+### 3.10 Profile
 
-Admin creates announcement:
+All authenticated users can:
+- Edit own profile (first name, last name, phone, email, Instagram, birth date)
+- Change password
 
-Fields:
+Avatar: auto-generated color avatar from initials (deterministic color per name)
 
-• title  
-• body  
-• image_url (optional)  
-• audience_type:  
-- all_teachers  
-- selected_teachers  
-• starts_at  
-• ends_at  
+### 3.11 Announcements System
 
-Filtering logic (confirmed requirement):
+**Admin creates announcements with:**
 
-An announcement is visible only if:
+| Field | Notes |
+|-------|-------|
+| `title` | Required |
+| `body` | Required, plain text (pre-wrap rendered) |
+| `image_url` | Optional banner image |
+| `audience_type` | `all_teachers` or `selected_teachers` |
+| `starts_at` | Optional — announcement visible only from this date |
+| `ends_at` | Optional — announcement expires on this date |
 
-now() >= starts_at  
-AND (ends_at IS NULL OR now() <= ends_at)  
+Audience targeting: When `selected_teachers`, an `announcement_targets` record is created per selected teacher.
 
-Teachers only see announcements they are targeted in.
+Visibility rule for teachers:
+```
+now() >= starts_at
+AND (ends_at IS NULL OR now() <= ends_at)
+AND teacher is in audience (all_teachers OR targeted)
+```
 
-------------------------------------------------------------
+Admin sees all announcements plus expired ones (toggle).
 
-### 3.10 Announcement Comments
+**Announcement List Page:**
+- Cards with unread dot indicator (blue left border + dot for unread)
+- Audience badge (All Teachers / Selected Teachers)
+- Comment count · author · timestamp
+- Search by title/body
+- "Show expired" toggle (all roles)
+- Admin: edit (inline collapse) and delete per card
 
-Teachers:
+**Announcement Detail Page:**
+- Full body, banner image if present, date range if set
+- Audience badge + meta
+- Admin: Edit form (collapse) + Delete
+- Comment thread (all authenticated users)
 
-• CRUD only their own comments  
+### 3.12 Announcement Comments
 
-Admin:
+| Role | Create | Update | Delete |
+|------|--------|--------|--------|
+| Teacher | ✓ own | ✓ own | ✓ own (inline) |
+| Admin | ✓ | ✓ any | ✓ any |
 
-• Full moderation  
-• Soft delete (deleted_at)  
+- Inline edit: click edit icon → textarea replaces body in-place
+- Avatar with deterministic color per author name
+- "You" badge on own comments
+- "edited" label if `updated_at ≠ created_at`
 
-------------------------------------------------------------
+### 3.13 Read / Unread Tracking
 
-### 3.11 Read / Unread Tracking
+Table: `announcement_reads`
 
-Table:
+- On opening announcement detail: `markAsRead()` is called (fire-and-forget)
+- Unread count: visible announcements minus rows in `announcement_reads` for current user
+- RLS scopes `announcement_reads` to the current user — empty result = unread
 
-announcement_reads
+### 3.14 Google Calendar Integration
 
-On opening announcement detail:
+Available to: **Admin + Teacher** (all authenticated roles)
 
-Insert read_at if not exists
+**Connection flow:**
+1. User clicks Calendar in sidebar → opens off-canvas drawer
+2. First visit: "Connect Google Calendar" button
+3. OAuth 2.0 consent (Google Identity Services) — requests `calendar`, `calendar.events`, `email`, `profile` scopes
+4. On success: access token cached in `sessionStorage`; connected email stored in `localStorage` scoped to the Supabase user ID
+5. If a different Supabase user logs in, their previous Google connection is automatically cleared
 
-Unread count:
+**Calendar drawer features:**
+- Weekly calendar (FullCalendar 6.1.15) — `timeGridWeek` on desktop, `timeGridDay` on mobile
+- Bulgarian locale, Monday-first week
+- Create event: click empty slot → modal form (title, date, start/end time, optional description)
+- Edit event: click existing event → same modal pre-filled
+- Delete event: from event modal with shared confirm dialog
+- Disconnect calendar: removes token + email from storage
+- Event cache: results cached by date range, cleared on create/update/delete
+- Prefetch: current week events are fetched immediately on token acquisition (before FullCalendar renders) — eliminates blank-flash UX issue
+- Error handling: `TOKEN_EXPIRED` → auto re-consent; `INSUFFICIENT_SCOPES` → force re-consent with correct scopes
 
-Visible announcements  
-MINUS  
-announcement_reads where user_id = current user  
+---
 
-------------------------------------------------------------
+## 4. SHARED UI PATTERNS
 
-## 4. NON-FUNCTIONAL REQUIREMENTS
+### 4.1 Delete Confirmation Modal
 
-### 4.1 Security
+All delete operations use a single shared `confirmDelete()` component (`src/components/modal.js`):
+- Returns `Promise<boolean>`
+- Custom title, message and confirm button label per call
+- Single DOM instance reused across all pages
+- Consistent visual design (trash icon, red confirm button)
 
-• RLS enabled on all domain tables  
-• Admin override policies  
-• Storage bucket private  
-• File access validated against student_id permissions  
+Replaces: all native `window.confirm()` calls and individual Bootstrap delete modals throughout the app.
 
-### 4.2 Data Integrity
+### 4.2 Toast Notifications
 
-• One active primary teacher per student (partial unique index)  
-• FK constraints with ON DELETE CASCADE  
-• Soft delete consistency  
+All success / error / warning states surface as toast notifications (bottom-right):
+- Types: `success` · `danger` · `warning` · `info`
+- White card with colored left border (4px)
+- Auto-dismiss after 4 seconds
 
-### 4.3 UX Standards
+### 4.3 Inline Forms (Collapse Panels)
 
-• Bootstrap tabs  
-• Bootstrap modals  
-• Toast notifications  
-• Clear empty states  
-• Mobile responsive  
+Add/Edit forms throughout the app use Bootstrap collapse panels with the `.ml-inline-form` class:
+- Appear inline below the relevant section header
+- Cancel button collapses + resets the form
+- Loading spinner on submit button while async operation runs
+- Inline error alert below form on failure
 
-------------------------------------------------------------
+---
 
-## 5. SUCCESS METRICS (MVP)
+## 5. NON-FUNCTIONAL REQUIREMENTS
 
-• % teachers active weekly  
-• Lessons created per week  
-• Recording uploads per week  
-• Announcement read rate within 48h  
-• Admin visibility satisfaction (qualitative)  
+### 5.1 Security
 
-------------------------------------------------------------
+- RLS enabled on all domain tables (enforced at database level)
+- Admin override policies via `is_admin()` DB helper
+- Teacher access validated via `is_teacher_assigned_to_student()` DB helper
+- Storage bucket private — file access requires authenticated session
+- `service_role` key never exposed to frontend
+- Google OAuth tokens stored only in `sessionStorage` (cleared on tab close)
+- Google Calendar connection scoped to Supabase user ID to prevent cross-user leakage
 
-## 6. DOMAIN EXTENSIBILITY STRATEGY
+### 5.2 Data Integrity
 
-Although MVP is for one school:
+- One active primary teacher per student (partial unique index on `student_teacher_assignments`)
+- All FKs with `ON DELETE CASCADE` for child records
+- Soft delete pattern for lessons, notes, recordings (audit trail preserved)
+- Hard delete for songs, parents, assignment records (admin controlled)
 
-Design considerations:
+### 5.3 Responsive Design
 
-• Avoid music-specific naming in core logic  
-• Keep lesson fields extensible  
-• Songs table can later become “materials” or “topics”  
+- Full mobile support (375px+)
+- Sidebar collapses to offcanvas on mobile (hamburger trigger)
+- Tables replaced with card-list layouts where needed (student Info tab teachers list, dashboard heatmap adjusts on mobile)
+- All forms and modals are mobile-friendly
 
-Future pivot examples:
+### 5.4 Performance
 
-Music School → keep Songs  
-Math School → rename Songs → Topics  
-Language School → Songs → Texts / Units  
+- Event prefetching for Google Calendar (current week fetched immediately)
+- Dashboard stats: parallel async calls where data is independent
+- Monthly heatmap modal: empty months are filtered out (no dead columns)
 
-No multi-tenant complexity in MVP.
+### 5.5 UX Standards
 
-==================================================================
+- Empty states with descriptive message + icon on every data-empty section
+- Loading spinners on initial page load and on async form submits
+- Tab state persistence (student detail tabs survive back navigation in same session)
+- Back navigation link on all detail pages
 
-# PART 2 — TECHNICAL ARCHITECTURE, DATA MODEL, SECURITY, DELIVERY
+---
 
-==================================================================
+## 6. SUCCESS METRICS (MVP)
 
-## 1. TECH STACK
+- % teachers active weekly (login + lesson creation)
+- Lessons logged per week
+- Recording uploads per week
+- Announcement read rate within 48h
+- Admin operational confidence (qualitative — replaces Viber)
 
-Frontend:
+---
 
-• HTML5  
-• CSS3  
-• Vanilla JS (ES6+)  
-• Bootstrap 5  
+## 7. DOMAIN EXTENSIBILITY
 
-Backend:
+The data model is intentionally generic:
 
-• Supabase  
-- PostgreSQL  
-- Auth  
-- Storage  
-- RLS  
+| Current (Music School) | Future pivot |
+|------------------------|-------------|
+| Student Songs | Topics (Math) / Texts (Language) |
+| Lesson fields (vocal_technique, song_notes) | Extendable custom fields |
+| Teacher/Student roles | Any tutoring domain |
 
-Tooling:
+No multi-tenant complexity in MVP. Single `school_id` column can be added to each table when scaling to multiple schools.
 
-• Vite  
-• Node.js  
-• GitHub  
-• Netlify (deployment)  
+---
 
-------------------------------------------------------------
+## 8. MVP SCOPE — FINAL
 
-## 2. DATABASE MODEL (Authoritative)
+**Included:**
 
-Core Tables:
+| Module | Status |
+|--------|--------|
+| Auth (login, invite, set-password) | ✅ Delivered |
+| Dashboard (admin + teacher, analytics) | ✅ Delivered |
+| Students list + detail (5 tabs) | ✅ Delivered |
+| Lessons | ✅ Delivered |
+| Student Notes (journal) | ✅ Delivered |
+| Recordings (audio/video) | ✅ Delivered |
+| Songs / Repertoire | ✅ Delivered |
+| Teacher directory + management | ✅ Delivered |
+| Announcements (targeted + scheduling + read tracking) | ✅ Delivered |
+| Announcement comments | ✅ Delivered |
+| Google Calendar (OAuth + CRUD) | ✅ Delivered |
+| Profile editing | ✅ Delivered |
+| Shared delete confirmation modal | ✅ Delivered |
+| Responsive mobile design | ✅ Delivered |
 
-• profiles  
-• students  
-• student_parents  
-• student_teacher_assignments  
-• lessons  
-• student_notes  
-• recordings  
-• student_songs  
-• announcements  
-• announcement_targets  
-• announcement_comments  
-• announcement_reads  
+**Excluded (Post-MVP):**
 
-All primary keys:
+| Feature |
+|---------|
+| Parent login / parent-facing portal |
+| Payment tracking |
+| In-app messaging / chat |
+| Multi-tenant architecture |
+| Rich text editor (WYSIWYG) |
+| Public-facing pages |
+| Supabase Realtime (live refresh) |
+| Native mobile app |
 
-UUID default gen_random_uuid()
+---
 
-All timestamps:
-
-timestamptz default now()
-
-------------------------------------------------------------
-
-## 3. RLS POLICY REQUIREMENTS
-
-Global:
-
-Enable RLS on all tables except public safe metadata if any.
-
-Role logic:
-
-profiles.role determines permission branch.
-
-Teacher access:
-
-Exists active assignment for student.
-
-Admin:
-
-Full access via policy OR role check.
-
-Storage access:
-
-Validate user has access to student tied to file_path.
-
-------------------------------------------------------------
-
-## 4. STORAGE CONFIGURATION
-
-Bucket:
-
-recordings-private
-
-Rules:
-
-Only authenticated users.  
-Additional row-level logic via metadata validation.
-
-File validation:
-
-mime_type LIKE 'audio/%'  
-OR mime_type LIKE 'video/%'
-
-------------------------------------------------------------
-
-## 5. PERFORMANCE STRATEGY
-
-Indexes required:
-
-• student_teacher_assignments(student_id, teacher_id)  
-• lessons(student_id, held_at DESC)  
-• student_notes(student_id, created_at DESC)  
-• recordings(student_id, recorded_at DESC)  
-• announcements(starts_at, ends_at)  
-• announcement_reads(user_id, announcement_id)  
-
-------------------------------------------------------------
-
-## 6. DEFAULT SORTING RULES (GLOBAL CONSISTENCY)
-
-Lessons:  
-held_at DESC  
-
-Notes:  
-created_at DESC  
-
-Recordings:  
-recorded_at DESC  
-
-Announcements:  
-created_at DESC  
-
-Songs:  
-status ASC,  
-created_at DESC  
-
-------------------------------------------------------------
-
-## 7. DEPLOYMENT REQUIREMENTS
-
-Netlify:
-
-• Build command: vite build  
-• Publish directory: dist  
-• Environment variables:  
-SUPABASE_URL  
-SUPABASE_ANON_KEY  
-
-Repository must include:
-
-• README.md  
-• Database schema SQL  
-• RLS documentation section  
-• Setup guide  
-• .env.example  
-
-------------------------------------------------------------
-
-## 8. RISKS
-
-• RLS misconfiguration exposing data  
-• Storage access loopholes  
-• Assignment logic edge cases  
-• Soft delete inconsistencies  
-• Scope creep toward LMS  
-
-------------------------------------------------------------
-
-## 9. FINAL LOCKED MVP DEFINITION
-
-MVP includes:
-
-✔ Auth  
-✔ Students list + detail  
-✔ Lessons  
-✔ Notes  
-✔ Recordings (audio/video only)  
-✔ Songs (with status logic)  
-✔ Announcements (targeted + scheduling + read tracking)  
-✔ Strict role-based access via assignments  
-
-MVP excludes:
-
-✘ Parent login  
-✘ Payments  
-✘ Chat  
-✘ Multi-tenant architecture  
-✘ Advanced rich text editor  
-✘ Public pages  
-
-------------------------------------------------------------
-
-END OF PRD v1.0
+*Music Lab PRD v2.0 — Updated March 2026*
